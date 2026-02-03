@@ -1,0 +1,9 @@
+# 基礎套件
+requests
+requests-oauthlib
+plurk-oauth
+python-dotenv
+
+# Python 3.12+ 相容性修補程式 (Patch)
+setuptools
+pyutil
