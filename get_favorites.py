@@ -9,16 +9,37 @@ from requests_oauthlib import OAuth1
 from plurk_oauth import PlurkAPI
 from datetime import datetime
 
-# 環境設定
-ENV_FILE = "tool.env"
-load_dotenv(ENV_FILE)
 
+# ==========================================
+# 深度開發：Keys讀取邏輯 (支援靜態寫入與本地開發)
+# ==========================================
+def get_keys():
+    try:
+        # 優先嘗試讀取由 GitHub Actions 於編譯時動態產生的模組
+        import config_keys
+        ck = config_keys.CONSUMER_KEY
+        cs = config_keys.CONSUMER_SECRET
+    except ImportError:
+        # 若模組不存在（如本地開發環境），則讀取 tool.env
+        load_dotenv("tool.env")
+        ck = os.getenv("PLURK_CONSUMER_KEY")
+        cs = os.getenv("PLURK_CONSUMER_SECRET")
+    
+    # 讀取 User 個人的 Access Token (通常儲存在本地環境)
+    at = os.getenv("PLURK_ACCESS_TOKEN")
+    as_ = os.getenv("PLURK_ACCESS_TOKEN_SECRET")
+    
+    return ck, cs, at, as_
+
+# 環境設定
 BACKUP_DIR = "backup_js"
 
 # 噗浪 OAuth 端點
 REQUEST_TOKEN_URL = "https://www.plurk.com/OAuth/request_token"
 AUTHORIZE_URL = "https://www.plurk.com/OAuth/authorize"
 ACCESS_TOKEN_URL = "https://www.plurk.com/OAuth/access_token"
+
+# ... [base36_encode, get_last_saved_id, get_new_tokens, update_manifest 函式保持不變] ...
 
 def base36_encode(number):
     """將噗文 ID 轉換為 36 進位以產生 URL"""
@@ -72,16 +93,22 @@ def update_manifest(backup_dir):
     print(f"✅ 已更新索引：{months}")
 
 def main():
-    ck = os.getenv("PLURK_CONSUMER_KEY")
-    cs = os.getenv("PLURK_CONSUMER_SECRET")
-    at = os.getenv("PLURK_ACCESS_TOKEN")
-    as_ = os.getenv("PLURK_ACCESS_TOKEN_SECRET")
+    # 使用最佳化後的Keys讀取函式
+    ck, cs, at, as_ = get_keys()
+
+    if not ck or not cs:
+        print("❌ 錯誤：找不到 Consumer Key 或 Secret。請檢查環境設定。")
+        return
 
     if not at or not as_:
         at, as_ = get_new_tokens(ck, cs)
+        # 授權成功後，建議提示 User 手動存入 tool.env (針對開發者)
+        # 或是你可以考慮自動幫 User 寫入檔案（對一般 User 較友善）
 
     plurk = PlurkAPI(ck, cs)
     plurk.authorize(at, as_)
+
+    # ... [其餘邏輯保持不變] ...
 
     # 確保備份目錄存在
     if not os.path.exists(BACKUP_DIR):
