@@ -4,7 +4,10 @@ on:
   push:
     tags:
       - 'v*' # 當你推送標籤如 v1.0.0 時，會自動觸發打包流程
-
+# 在 jobs 前面加入這段
+permissions:
+  contents: write
+  
 jobs:
   build:
     name: 針對 ${{ matrix.os }} 進行建置
