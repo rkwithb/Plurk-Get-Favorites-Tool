@@ -1,0 +1,54 @@
+name: 建置與發佈執行檔
+
+on:
+  push:
+    tags:
+      - 'v*' # 當你推送標籤如 v1.0.0 時，會自動觸發打包流程
+
+jobs:
+  build:
+    name: 針對 ${{ matrix.os }} 進行建置
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - name: 檢出原始碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 環境
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: 安裝相依套件
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      # 【深度開發關鍵：靜態寫入金鑰】
+      # 直接將 GitHub Secrets 內容寫入暫存的 Python 模組，避免金鑰外洩
+      - name: 靜態寫入金鑰 (Hardcode Secrets)
+        shell: bash
+        run: |
+          echo "CONSUMER_KEY = '${{ secrets.PLURK_CONSUMER_KEY }}'" > config_keys.py
+          echo "CONSUMER_SECRET = '${{ secrets.PLURK_CONSUMER_SECRET }}'" >> config_keys.py
+
+      - name: 使用 PyInstaller 進行打包 (Windows)
+        if: matrix.os == 'windows-latest'
+        run: pyinstaller --onefile --windowed --name "Plurk_Archive_Win" get_favorites.py
+
+      - name: 使用 PyInstaller 進行打包 (macOS)
+        if: matrix.os == 'macos-latest'
+        run: pyinstaller --onefile --name "Plurk_Archive_Mac" get_favorites.py
+
+      - name: 上傳成品至 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Plurk_Archive_Win.exe
+            dist/Plurk_Archive_Mac
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
