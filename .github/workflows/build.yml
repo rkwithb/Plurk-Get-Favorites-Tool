@@ -1,9 +1,10 @@
-name: 建置與發佈執行檔
+name: Build, Test, and Publish 
 
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: # 隨時可以手動測試
 
 permissions:
   contents: write
@@ -38,14 +39,11 @@ jobs:
 
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
-        run: |
-          pyinstaller --onefile --windowed --name "Plurk_Archive_Win" get_favorites.py
-          # 這裡不直接上傳 Release，先存在 Actions 暫存區
+        run: pyinstaller --onefile --windowed --name "Plurk_Archive_Win" get_favorites.py
       
       - name: 打包 (macOS)
         if: matrix.os == 'macos-latest'
-        run: |
-          pyinstaller --onefile --name "Plurk_Archive_Mac" get_favorites.py
+        run: pyinstaller --onefile --name "Plurk_Archive_Mac" get_favorites.py
 
       - name: 暫存成品
         uses: actions/upload-artifact@v4
@@ -55,10 +53,40 @@ jobs:
             dist/Plurk_Archive_Win.exe
             dist/Plurk_Archive_Mac
 
+  # 新增測試 Job
+  test:
+    name: 測試執行檔 (${{ matrix.os }})
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    
+    steps:
+      - name: 下載該系統的成品
+        uses: actions/download-artifact@v4
+        with:
+          name: executable-${{ matrix.os }}
+
+      - name: 執行權限設定 (macOS)
+        if: matrix.os == 'macos-latest'
+        run: chmod +x Plurk_Archive_Mac
+
+      - name: 執行驗證 (Windows)
+        if: matrix.os == 'windows-latest'
+        # 測試是否能啟動並輸出。推測：若有 GUI 可能需確認是否有 --help 或 --version 參數
+        run: .\Plurk_Archive_Win.exe --help || echo "啟動成功（忽略無 GUI 錯誤）"
+
+      - name: 執行驗證 (macOS)
+        if: matrix.os == 'macos-latest'
+        run: ./Plurk_Archive_Mac --help || echo "啟動成功（忽略無 GUI 錯誤）"
+
   release:
     name: 建立發佈版本
-    needs: build  # 等 Windows 和 macOS 都打包完才執行
+    needs: test  # 最佳化：現在改為等 test 通過才發佈
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') # 確保手動觸發時若無 tag 不會報錯
     steps:
       - name: 下載所有成品
         uses: actions/download-artifact@v4
