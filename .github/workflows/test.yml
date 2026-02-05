@@ -1,0 +1,45 @@
+name: Integration Test
+
+on:
+  workflow_run:
+    workflows: ["Build"] # 確保在build.yml 完成後才觸發
+    types: [completed]
+  pull_request: # 提交 PR 時也跑一次
+
+jobs:
+  functional-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: my-app-linux
+            exec_command: ./my-app-linux --version
+          - os: windows-latest
+            artifact_name: my-app-windows.exe
+            exec_command: .\my-app-windows.exe --version
+          - os: macos-latest
+            artifact_name: my-app-macos
+            exec_command: ./my-app-macos --version
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: 檢出測試code
+        uses: actions/checkout@v4
+
+      # 這裡假設 build.yml 會將檔案上傳為 Artifacts
+      # 如果還沒上傳，需在 build.yml 加入 actions/upload-artifact
+      - name: 下載打包好的執行檔
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+
+      - name: 賦予執行權限 (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: chmod +x ${{ matrix.artifact_name }}
+
+      - name: 執行整合測試
+        run: |
+          echo "正在測試 ${{ matrix.artifact_name }}..."
+          ${{ matrix.exec_command }}
