@@ -40,19 +40,25 @@ jobs:
 
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
-        run: pyinstaller --onefile --windowed --name "Plurk_Archive_Win" get_favorites.py
+        # [修改] 使用版本號作為檔名的一部分
+        run: |
+          VERSION=${{ github.ref_name }}
+          pyinstaller --onefile --windowed --name "Plurk_Archive_Win_$VERSION" get_favorites.py
       
       - name: 打包 (macOS)
         if: matrix.os == 'macos-latest'
-        run: pyinstaller --onefile --name "Plurk_Archive_Mac" get_favorites.py
+        # [修改] 使用版本號作為檔名的一部分
+        run: |
+          VERSION=${{ github.ref_name }}
+          pyinstaller --onefile --name "Plurk_Archive_Mac_$VERSION" get_favorites.py
 
       - name: 暫存成品
         uses: actions/upload-artifact@v4
         with:
           name: executable-${{ matrix.os }}
           path: |
-            dist/Plurk_Archive_Win.exe
-            dist/Plurk_Archive_Mac
+            dist/Plurk_Archive_Win_*
+            dist/Plurk_Archive_Mac_*
 
   # 新增測試 Job
   test:
@@ -71,18 +77,17 @@ jobs:
         with:
           name: executable-${{ matrix.os }}
 
-      - name: 執行權限設定 (macOS)
-        if: matrix.os == 'macos-latest'
-        run: chmod +x Plurk_Archive_Mac
-
       - name: 執行驗證 (Windows)
         if: matrix.os == 'windows-latest'
-        # 測試是否能啟動並輸出。推測：若有 GUI 可能需確認是否有 --help 或 --version 參數
-        run: .\Plurk_Archive_Win.exe --help || echo "啟動成功（忽略無 GUI 錯誤）"
+        # [修改] 使用萬用字元匹配帶有版本號的檔名
+        run: .\Plurk_Archive_Win_*.exe --help || echo "啟動成功（忽略無 GUI 錯誤）"
 
       - name: 執行驗證 (macOS)
         if: matrix.os == 'macos-latest'
-        run: ./Plurk_Archive_Mac --help || echo "啟動成功（忽略無 GUI 錯誤）"
+        # [修改] 使用萬用字元匹配並賦予執行權限
+        run: |
+          chmod +x Plurk_Archive_Mac_*
+          ./Plurk_Archive_Mac_* --help || echo "啟動成功（忽略無 GUI 錯誤）"
 
   release:
     name: 建立發佈版本
