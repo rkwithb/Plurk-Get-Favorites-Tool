@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  pull_request: # 新增： PR 時自動trigger
   workflow_dispatch: # 隨時可以手動測試
 
 permissions:
@@ -59,6 +60,7 @@ jobs:
     needs: build
     runs-on: ${{ matrix.os }}
     strategy:
+      # fail-fast 為 false 表示即使一個系統掛了，其他系統也會繼續跑完
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
