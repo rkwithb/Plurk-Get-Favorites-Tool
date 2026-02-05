@@ -88,7 +88,7 @@ jobs:
     name: 建立發佈版本
     needs: test  # 最佳化：現在改為等 test 通過才發佈
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') # 確保手動觸發時若無 tag 不會報錯
+    if: startsWith(github.ref, 'refs/tags/') # 關鍵最佳化：只有在「推送到 Tag」的情況下才執行發佈
     steps:
       - name: 下載所有成品
         uses: actions/download-artifact@v4
