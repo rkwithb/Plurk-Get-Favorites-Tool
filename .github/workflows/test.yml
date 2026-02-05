@@ -1,10 +1,12 @@
-name: Integration Test
+name: Executable Integration Test
 
 on:
   workflow_run:
-    workflows: ["Build"] # 確保在build.yml 完成後才觸發
+    workflows: ["Build"]
     types: [completed]
-  pull_request: # 提交 PR 時也跑一次
+  pull_request:
+  # 加入下面這兩行
+  workflow_dispatch:
 
 jobs:
   functional-test:
