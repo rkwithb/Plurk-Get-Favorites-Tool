@@ -13,19 +13,35 @@ from datetime import datetime
 # ==========================================
 # 深度開發：Keys讀取邏輯 (支援靜態寫入與本地開發)
 # ==========================================
-def get_keys():
-    try:
-        # 優先嘗試讀取由 GitHub Actions 於編譯時動態產生的模組
-        import config_keys
-        ck = config_keys.CONSUMER_KEY
-        cs = config_keys.CONSUMER_SECRET
-    except ImportError:
-        # 若模組不存在（如本地開發環境），則讀取 tool.env
-        load_dotenv("tool.env")
-        ck = os.getenv("PLURK_CONSUMER_KEY")
-        cs = os.getenv("PLURK_CONSUMER_SECRET")
+# ==========================================
+# Keys 管理邏輯
+# ==========================================
+def save_keys(ck, cs, at, as_):
+    """將所有 Keys 儲存回 tool.env"""
+    with open("tool.env", "w", encoding="utf-8") as f:
+        f.write(f"PLURK_CONSUMER_KEY={ck}\n")
+        f.write(f"PLURK_CONSUMER_SECRET={cs}\n")
+        f.write(f"PLURK_ACCESS_TOKEN={at}\n")
+        f.write(f"PLURK_ACCESS_TOKEN_SECRET={as_}\n")
+    print("✅ 已將金鑰與 Access Token 儲存至 tool.env")
     
-    # 讀取 User 個人的 Access Token (通常儲存在本地環境)
+def get_keys():
+    env_file = "tool.env"
+    
+    # 若檔案不存在則建立範本並提示使用者
+    if not os.path.exists(env_file):
+        with open(env_file, "w", encoding="utf-8") as f:
+            f.write("PLURK_CONSUMER_KEY=\n")
+            f.write("PLURK_CONSUMER_SECRET=\n")
+            f.write("PLURK_ACCESS_TOKEN=\n")
+            f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
+        print(f"❌ 找不到 {env_file}，已為您建立範本。")
+        print("請至 https://www.plurk.com/PlurkApp/ 申請並填入 Consumer Key/Secret。")
+        return None, None, None, None
+
+    load_dotenv(env_file)
+    ck = os.getenv("PLURK_CONSUMER_KEY")
+    cs = os.getenv("PLURK_CONSUMER_SECRET")
     at = os.getenv("PLURK_ACCESS_TOKEN")
     as_ = os.getenv("PLURK_ACCESS_TOKEN_SECRET")
     
@@ -93,20 +109,24 @@ def update_manifest(backup_dir):
     print(f"✅ 已更新索引：{months}")
 
 def main():
-    # 使用最佳化後的Keys讀取函式
     ck, cs, at, as_ = get_keys()
 
     if not ck or not cs:
-        print("❌ 錯誤：找不到 Consumer Key 或 Secret。請檢查環境設定。")
+        # get_keys 已處理過提示訊息
         return
 
+    # 若缺少 Token，啟動授權流程並儲存
     if not at or not as_:
         at, as_ = get_new_tokens(ck, cs)
-        # 授權成功後，建議提示 User 手動存入 tool.env (針對開發者)
-        # 或是你可以考慮自動幫 User 寫入檔案（對一般 User 較友善）
-
+        # 3. 呼叫儲存函式將取得的 Token 寫入 tool.env
+        save_keys(ck, cs, at, as_)
+        
+        
+    # 初始化 API
     plurk = PlurkAPI(ck, cs)
     plurk.authorize(at, as_)
+    
+    # ... 後續備份邏輯 ...
 
     # ... [其餘邏輯保持不變] ...
 
