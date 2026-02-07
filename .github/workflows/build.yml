@@ -32,11 +32,6 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: 靜態寫入金鑰
-        shell: bash
-        run: |
-          echo "CONSUMER_KEY = '${{ secrets.PLURK_CONSUMER_KEY }}'" > config_keys.py
-          echo "CONSUMER_SECRET = '${{ secrets.PLURK_CONSUMER_SECRET }}'" >> config_keys.py
 
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
