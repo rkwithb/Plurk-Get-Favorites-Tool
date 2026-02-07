@@ -9,7 +9,13 @@ from requests_oauthlib import OAuth1
 from plurk_oauth import PlurkAPI
 from datetime import datetime
 
+import sys
+import io
 
+# 強制標準輸出使用 UTF-8
+if sys.platform == "win32":
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    
 # ==========================================
 # 深度開發：Keys讀取邏輯 (支援靜態寫入與本地開發)
 # ==========================================
