@@ -4,8 +4,8 @@ on:
   push:
     tags:
       - 'v*'
-  pull_request: # 新增： PR 時自動trigger
-  workflow_dispatch: # 隨時可以手動測試
+  pull_request: 
+  workflow_dispatch: 
 
 permissions:
   contents: write
@@ -28,29 +28,29 @@ jobs:
           python-version: '3.10'
 
       - name: 安裝相依套件
+        shell: bash
         run: |
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Set Version # 或是您發生錯誤的那個步驟名稱
-        shell: bash       # <--- 務必補上這一行
+      - name: Set Version
+        shell: bash
         run: |
-          # 自動抓取目前的 Git Tag 名稱
+          # 從 Tag 中提取版本號並存入環境變數
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
-        # [修改] 使用版本號作為檔名的一部分
+        shell: bash
         run: |
-          VERSION=${{ github.ref_name }}
-          pyinstaller --onefile --windowed --name "Plurk_Archive_Win_$VERSION" get_favorites.py
+          # 直接引用環境變數 ${{ env.VERSION }}
+          pyinstaller --onefile --windowed --name "Plurk_Archive_Win_${{ env.VERSION }}" get_favorites.py
       
       - name: 打包 (macOS)
         if: matrix.os == 'macos-latest'
-        # [修改] 使用版本號作為檔名的一部分
+        shell: bash
         run: |
-          VERSION=${{ github.ref_name }}
-          pyinstaller --onefile --name "Plurk_Archive_Mac_$VERSION" get_favorites.py
+          pyinstaller --onefile --name "Plurk_Archive_Mac_${{ env.VERSION }}" get_favorites.py
 
       - name: 暫存成品
         uses: actions/upload-artifact@v4
@@ -60,13 +60,11 @@ jobs:
             dist/Plurk_Archive_Win_*
             dist/Plurk_Archive_Mac_*
 
-  # 新增測試 Job
   test:
     name: 測試執行檔 (${{ matrix.os }})
     needs: build
     runs-on: ${{ matrix.os }}
     strategy:
-      # fail-fast 為 false 表示即使一個系統掛了，其他系統也會繼續跑完
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
@@ -79,21 +77,22 @@ jobs:
 
       - name: 執行驗證 (Windows)
         if: matrix.os == 'windows-latest'
-        # [修改] 使用萬用字元匹配帶有版本號的檔名
-        run: .\Plurk_Archive_Win_*.exe --help || echo "啟動成功（忽略無 GUI 錯誤）"
+        shell: bash
+        # 使用 bash 處理萬用字元 * 以確保正確找到檔案
+        run: ./Plurk_Archive_Win_*.exe --help || echo "啟動成功（忽略無 GUI 錯誤）"
 
       - name: 執行驗證 (macOS)
         if: matrix.os == 'macos-latest'
-        # [修改] 使用萬用字元匹配並賦予執行權限
+        shell: bash
         run: |
           chmod +x Plurk_Archive_Mac_*
           ./Plurk_Archive_Mac_* --help || echo "啟動成功（忽略無 GUI 錯誤）"
 
   release:
     name: 建立發佈版本
-    needs: test  # 最佳化：現在改為等 test 通過才發佈
+    needs: test
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') # 關鍵最佳化：只有在「推送到 Tag」的情況下才執行發佈
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: 下載所有成品
         uses: actions/download-artifact@v4
