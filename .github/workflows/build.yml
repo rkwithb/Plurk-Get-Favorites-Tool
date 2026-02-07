@@ -32,6 +32,11 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
+      - name: Set Version # 或是您發生錯誤的那個步驟名稱
+        shell: bash       # <--- 務必補上這一行
+        run: |
+          # 自動抓取目前的 Git Tag 名稱
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
