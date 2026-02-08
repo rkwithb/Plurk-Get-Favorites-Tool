@@ -14,8 +14,10 @@ import io
 
 # 強制標準輸出使用 UTF-8
 if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    
+    # 檢查 sys.stdout 是否存在，避免 NoneType 錯誤
+    if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 # ==========================================
 # 深度開發：Keys讀取邏輯 (支援靜態寫入與本地開發)
 # ==========================================
@@ -30,10 +32,10 @@ def save_keys(ck, cs, at, as_):
         f.write(f"PLURK_ACCESS_TOKEN={at}\n")
         f.write(f"PLURK_ACCESS_TOKEN_SECRET={as_}\n")
     print("✅ 已將金鑰與 Access Token 儲存至 tool.env")
-    
+
 def get_keys():
     env_file = "tool.env"
-    
+
     # 若檔案不存在則建立範本並提示使用者
     if not os.path.exists(env_file):
         with open(env_file, "w", encoding="utf-8") as f:
@@ -50,7 +52,7 @@ def get_keys():
     cs = os.getenv("PLURK_CONSUMER_SECRET")
     at = os.getenv("PLURK_ACCESS_TOKEN")
     as_ = os.getenv("PLURK_ACCESS_TOKEN_SECRET")
-    
+
     return ck, cs, at, as_
 
 # 環境設定
@@ -77,7 +79,7 @@ def get_last_saved_id():
     """掃描現有備份檔案，找出已存的最大 plurk_id"""
     if not os.path.exists(BACKUP_DIR):
         return 0
-    
+
     last_id = 0
     for filename in os.listdir(BACKUP_DIR):
         if filename.endswith(".js") and filename != "manifest.js":
@@ -97,7 +99,7 @@ def get_new_tokens(ck, cs):
     req_secret = creds.get('oauth_token_secret')[0]
     print(f"\n請開啟網頁進行授權：\n{AUTHORIZE_URL}?oauth_token={req_token}")
     verifier = input("\n請輸入驗證碼: ").strip()
-    oauth = OAuth1(ck, client_secret=cs, resource_owner_key=req_token, 
+    oauth = OAuth1(ck, client_secret=cs, resource_owner_key=req_token,
                    resource_owner_secret=req_secret, verifier=verifier)
     r = requests.post(ACCESS_TOKEN_URL, auth=oauth)
     final_creds = parse_qs(r.text)
@@ -126,12 +128,12 @@ def main():
         at, as_ = get_new_tokens(ck, cs)
         # 3. 呼叫儲存函式將取得的 Token 寫入 tool.env
         save_keys(ck, cs, at, as_)
-        
-        
+
+
     # 初始化 API
     plurk = PlurkAPI(ck, cs)
     plurk.authorize(at, as_)
-    
+
     # ... 後續備份邏輯 ...
 
     # ... [其餘邏輯保持不變] ...
@@ -172,12 +174,12 @@ def main():
                 ym = dt.strftime("%Y_%m")
                 if ym not in monthly_data:
                     monthly_data[ym] = []
-                
+
                 # 加入 URL
                 p['plurk_url'] = f"https://www.plurk.com/p/{base36_encode(p['plurk_id'])}"
                 monthly_data[ym].append(p)
                 total_new += 1
-            
+
             if stop_backup: break
             offset = plurks[-1]['posted']
             print(f"已抓取 {total_new} 則新噗文...")
@@ -192,7 +194,7 @@ def main():
     # 儲存新資料 (採覆蓋或合併方式)
     for ym, data in monthly_data.items():
         file_path = os.path.join(BACKUP_DIR, f"{ym}.js")
-        
+
         # 若該月份已存在，則讀取舊資料合併
         existing_data = []
         if os.path.exists(file_path):

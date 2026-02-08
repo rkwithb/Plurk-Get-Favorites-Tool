@@ -1,11 +1,11 @@
-name: Build, Test, and Publish 
+name: Build, Test, and Publish
 
 on:
   push:
     tags:
       - 'v*'
-  pull_request: 
-  workflow_dispatch: 
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,7 +17,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
-    
+
     steps:
       - name: 檢出原始碼
         uses: actions/checkout@v4
@@ -39,13 +39,14 @@ jobs:
           # 從 Tag 中提取版本號並存入環境變數
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
+      # 在 build.yml 中修改 Windows 打包指令
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
-          # 直接引用環境變數 ${{ env.VERSION }}
-          pyinstaller --onefile --windowed --name "Plurk_Archive_Win_${{ env.VERSION }}" get_favorites.py
-      
+          # 移除 --windowed，保留預設的 console 模式
+          pyinstaller --onefile --name "Plurk_Archive_Win_${{ env.VERSION }}" get_favorites.py
+
       - name: 打包 (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
@@ -68,7 +69,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
-    
+
     steps:
       - name: 下載該系統的成品
         uses: actions/download-artifact@v4
