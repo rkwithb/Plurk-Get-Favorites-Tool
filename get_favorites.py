@@ -12,11 +12,34 @@ from datetime import datetime
 import sys
 import io
 
-# 強制標準輸出使用 UTF-8
+
+# ==========================================
+# I/O 強健性初始化 (Robustness Initialization)
+# ==========================================
 if sys.platform == "win32":
-    # 檢查 sys.stdout 是否存在，避免 NoneType 錯誤
     if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+        try:
+            # 強制使用 UTF-8 並開啟行緩衝，防止 Windows 環境編碼崩潰
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
+        except Exception:
+            pass
+    elif sys.stdout is None:
+        # 防止 --windowed 模式或無控制台環境下 print 崩潰
+        sys.stdout = open(os.devnull, 'w')
+
+def safe_input(prompt, default="n"):
+    """
+    強健的輸入函式：
+    1. 偵測是否為 TTY (互動式終端機)，若非互動環境則直接回傳預設值（解決 GitHub Actions 報錯）。
+    2. 捕捉 EOFError 與 OSError，防止程式在意外中斷時崩潰。
+    """
+    try:
+        # 檢查標準輸入是否連接到終端機
+        if not sys.stdin or not sys.stdin.isatty():
+            return default
+        return input(prompt).lower()
+    except (EOFError, OSError):
+        return default
 
 # ==========================================
 # 深度開發：Keys讀取邏輯 (支援靜態寫入與本地開發)
@@ -98,7 +121,7 @@ def get_new_tokens(ck, cs):
     req_token = creds.get('oauth_token')[0]
     req_secret = creds.get('oauth_token_secret')[0]
     print(f"\n請開啟網頁進行授權：\n{AUTHORIZE_URL}?oauth_token={req_token}")
-    verifier = input("\n請輸入驗證碼: ").strip()
+    verifier = safe_input("\n請輸入驗證碼: ").strip()
     oauth = OAuth1(ck, client_secret=cs, resource_owner_key=req_token,
                    resource_owner_secret=req_secret, verifier=verifier)
     r = requests.post(ACCESS_TOKEN_URL, auth=oauth)
