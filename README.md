@@ -4,11 +4,12 @@
 
 [繁體中文] | ~~[English](unavailable)~~ | ~~[日本語](unavailable)~~
 
-這是一個專為噗浪（Plurk）使用者開發的**深度備份工具**。它可以將個人帳號中所有的「喜愛噗文」完整抓取，並產生一個具備磨砂玻璃質感的視覺化網頁介面，方便隨時離線瀏覽。
+這是一個專為噗浪（Plurk）使用者開發的**備份工具**。它可以將個人帳號中所有的「喜愛噗文」完整抓取，並產生一個可自行設定背景圖的網頁介面，方便隨時離線瀏覽。
 
+![網頁介面截圖](./Tutorial/htmlpage01.png)
 ---
 
-## ✨ 核心特色
+## ✨ 重點特色
 
 * **🚀 零設定啟動**：提供 Windows 與 macOS 執行檔，無需安裝 Python 環境即可運作。
 * **💎 極致視覺體驗**：產出的備份網頁採用現代化 UI 設計，針對電腦版瀏覽器進行最佳化。
@@ -70,7 +71,7 @@ PLURK_ACCESS_TOKEN_SECRET=
 
 建議將產出的檔案（`index.html`、`backup_js` 資料夾等）上傳至以下免費空間：
 
-* [Vercel](https://vercel.com/) (推薦：直接將資料夾拖放至網頁即可完成佈署)
+* [Vercel](https://vercel.com/) (推薦：直接將資料夾拖放至網頁即可完成)
 * [Cloudflare Pages](https://pages.cloudflare.com/)
 * [GitHub Pages](https://pages.github.com/)
 
