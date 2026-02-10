@@ -29,7 +29,7 @@
 ### 2. 設定 API 金鑰 (重要)
 
 1. 第一次執行程式時，系統會自動在同目錄下產生一個 `tool.env` 檔案。
-2. 前往 [噗浪開發者中心](https://www.plurk.com/PlurkApp/) 申請新應用程式（App）。
+2. [如何申請噗浪 API Key](./Tutorial/plurkappkey.md)
 3. 使用記事本開啟 `tool.env`，將取得的 **App Key** 與 **App Secret** 填入（請勿與別人共用）。
 
 #### 💡 填寫範例與規範
