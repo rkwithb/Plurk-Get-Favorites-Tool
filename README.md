@@ -2,7 +2,7 @@
 
 # Plurk Favorite Archive (噗浪喜愛噗文備份工具)
 
-[繁體中文] | [English](https://www.google.com/search?q=./README_en.md) | [日本語](https://www.google.com/search?q=./README_jp.md)
+[繁體中文] | ~~[English](unavailable)~~ | ~~[日本語](unavailable)~~
 
 這是一個專為噗浪（Plurk）使用者開發的**深度備份工具**。它可以將個人帳號中所有的「喜愛噗文」完整抓取，並產生一個具備磨砂玻璃質感的視覺化網頁介面，方便隨時離線瀏覽。
 
