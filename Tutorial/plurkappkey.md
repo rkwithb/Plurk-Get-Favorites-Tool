@@ -1,5 +1,5 @@
 
-# 噗浪 Plurk API 申請教學
+# 噗浪 Plurk 應用程式 申請教學
 
 本教學將引導你取得開發噗浪機器人或應用程式所需的 **Consumer Key** 與 **Consumer Secret**。
 
