@@ -88,3 +88,10 @@ PLURK_ACCESS_TOKEN_SECRET=
 
 本工具僅供個人技術研究與資料備份使用，請務必遵守噗浪官方之 API 使用規範。
 
+---
+
+## 授權條款 (License)
+
+本專案採用 CC BY-NC 4.0 授權，詳情請參閱 [LICENSE](LICENSE) 檔案。
+
+This project is licensed under the CC BY-NC 4.0. Please see the [LICENSE](LICENSE) file for more information.
