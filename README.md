@@ -92,6 +92,6 @@ PLURK_ACCESS_TOKEN_SECRET=
 
 ## 授權條款 (License)
 
-本專案採用 CC BY-NC 4.0 授權，詳情請參閱 [LICENSE](LICENSE) 檔案。
+本專案採用 CC BY-NC 4.0 授權，詳情請參閱 [LICENSE](LICENSE.md) 檔案。
 
-This project is licensed under the CC BY-NC 4.0. Please see the [LICENSE](LICENSE) file for more information.
+This project is licensed under the CC BY-NC 4.0. Please see the [LICENSE](LICENSE.md) file for more information.
