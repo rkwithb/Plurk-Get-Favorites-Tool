@@ -1,7 +1,7 @@
 
 # 噗浪 Plurk 應用程式 申請教學
 
-本教學將引導你取得開發噗浪機器人或應用程式所需的 **Consumer Key** 與 **Consumer Secret**。
+本教學將引導你取得開發Plurk應用程式所需的 **Consumer Key** 與 **Consumer Secret**。
 
 ## 📌 準備工作
 
@@ -23,10 +23,10 @@
 
 | 欄位名稱 | 建議填寫內容 |
 | --- | --- |
-| **App Title** | 你的應用程式名稱（例如：我的自動回噗機器人） |
+| **App Title** | 你的應用程式名稱（例如：我的Plurk程式） |
 | **App Summary** | 簡單描述這個程式的功能 |
 | **Website** | 你的 GitHub 專案網址或個人網站（必填） |
-| **Category** | 選擇「機器人或資料擷取/蒐集」或其他符合項 |
+| **Category** | 選擇符合項目比如「手機或桌面應用程式」 |
 | **OAuth callback** | **保持空白**（除非你有特定伺服器需求） |
 
 ![圖片敘述](appkey01.png)
