@@ -3,19 +3,24 @@
 # Licensed under CC BY-NC 4.0 (Non-Commercial Use Only)
 # Disclaimer: Use at your own risk. The author is not responsible for any damages.
 
-import os
-import requests
-import time
-import json
-import re
-from urllib.parse import parse_qs
-from dotenv import load_dotenv
-from requests_oauthlib import OAuth1
-from plurk_oauth import PlurkAPI
-from datetime import datetime
-
-import sys
+# 1. (Standard library imports)
 import io
+import json
+import os
+import re
+import sys
+import time
+from datetime import datetime
+from urllib.parse import parse_qs
+
+# 2. (Related third party imports)
+from dotenv import load_dotenv
+import requests
+from requests_oauthlib import OAuth1
+
+# 3. (Local application/library specific imports)
+from plurk_oauth import PlurkAPI
+# official Plurk APPI library with sample code : https://github.com/clsung/plurk-oauth
 
 
 # ==========================================
