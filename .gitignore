@@ -15,3 +15,4 @@ dist/
 # (選配) 如果你不希望把備份下來的私噗也傳上去，可以忽略 backup_js
 backup_js/
 msg.txt
+note/
