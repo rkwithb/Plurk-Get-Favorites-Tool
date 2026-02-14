@@ -239,6 +239,12 @@ def main():
     ck, cs, at, as_ = get_keys()
     if not ck or not cs or not at or not as_: return
 
+
+    # (setup_env 檢查後)
+    print("==================================================")
+    print("🚀 Plurk Favorites Backup Tool v2.0 (SQLite Edition)")
+    print(f"📅 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("==================================================")
     conn = init_db()
     plurk = PlurkAPI(ck, cs)
     plurk.authorize(at, as_)
@@ -249,6 +255,7 @@ def main():
         mode_type, criteria = 'full', 0
     else:
         # 正常選擇模式
+        print(f"🔍 上次備份最後 ID: {last_id}")
         mode_type, criteria = select_backup_mode(last_id)
 
     # 4. 執行任務
