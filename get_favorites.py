@@ -1,81 +1,86 @@
-
 # Copyright (c) 2026 rkwithb (https://github.com/rkwithb)
 # Licensed under CC BY-NC 4.0 (Non-Commercial Use Only)
 # Disclaimer: Use at your own risk. The author is not responsible for any damages.
 
-# 1. (Standard library imports)
+
 import io
 import json
 import os
 import re
 import sys
 import time
+import sqlite3
 from datetime import datetime
 from urllib.parse import parse_qs
-
-# 2. (Related third party imports)
 from dotenv import load_dotenv
 import requests
 from requests_oauthlib import OAuth1
-
-# 3. (Local application/library specific imports)
 from plurk_oauth import PlurkAPI
 
 # ==========================================
-# I/O 強健性初始化
+# 初始化與路徑設定
 # ==========================================
+BACKUP_DIR = "backup_js"
+DB_PATH = os.path.join(BACKUP_DIR, "plurk_favorites.db")
+TRACK_FILE = os.path.join(BACKUP_DIR, "affected_months.txt")
+
+if not os.path.exists(BACKUP_DIR):
+    os.makedirs(BACKUP_DIR)
+
+# (I/O 強健性初始化代碼略，與原版相同...)
 if sys.platform == "win32":
     if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
         try:
             sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
-        except Exception:
-            pass
-    elif sys.stdout is None:
-        sys.stdout = open(os.devnull, 'w')
+        except Exception: pass
 
 def safe_input(prompt, default="n"):
     try:
-        if not sys.stdin or not sys.stdin.isatty():
-            return default
+        if not sys.stdin or not sys.stdin.isatty(): return default
         return input(prompt).lower()
-    except (EOFError, OSError):
-        return default
+    except (EOFError, OSError): return default
 
 # ==========================================
-# Keys 管理邏輯
+# 資料庫操作邏輯
 # ==========================================
-def save_keys(ck, cs, at, as_):
-    with open("tool.env", "w", encoding="utf-8") as f:
-        f.write(f"PLURK_CONSUMER_KEY={ck}\n")
-        f.write(f"PLURK_CONSUMER_SECRET={cs}\n")
-        f.write(f"PLURK_ACCESS_TOKEN={at}\n")
-        f.write(f"PLURK_ACCESS_TOKEN_SECRET={as_}\n")
-    print("✅ 已將金鑰與 Access Token 儲存至 tool.env")
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS favorites (
+            plurk_id INTEGER PRIMARY KEY,
+            posted TEXT,
+            raw_json TEXT
+        )
+    ''')
+    conn.commit()
+    return conn
 
+def save_to_db(conn, p):
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT OR IGNORE INTO favorites (plurk_id, posted, raw_json)
+        VALUES (?, ?, ?)
+    ''', (p['plurk_id'], p['posted'], json.dumps(p, ensure_ascii=False)))
+    conn.commit()
+
+# ==========================================
+# 金鑰與 Token 管理 (略，與原版相同...)
+# ==========================================
 def get_keys():
     env_file = "tool.env"
     if not os.path.exists(env_file):
-        with open(env_file, "w", encoding="utf-8") as f:
-            f.write("PLURK_CONSUMER_KEY=\n")
-            f.write("PLURK_CONSUMER_SECRET=\n")
-            f.write("PLURK_ACCESS_TOKEN=\n")
-            f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
-        print(f"❌ 找不到 {env_file}，已為您建立範本。")
-        print("請至 https://www.plurk.com/PlurkApp/ 申請並填入 Consumer Key/Secret。")
+        print(f"❌ 找不到 {env_file}")
         return None, None, None, None
-
     load_dotenv(env_file)
-    ck = os.getenv("PLURK_CONSUMER_KEY")
-    cs = os.getenv("PLURK_CONSUMER_SECRET")
-    at = os.getenv("PLURK_ACCESS_TOKEN")
-    as_ = os.getenv("PLURK_ACCESS_TOKEN_SECRET")
-    return ck, cs, at, as_
+    return os.getenv("PLURK_CONSUMER_KEY"), os.getenv("PLURK_CONSUMER_SECRET"), \
+           os.getenv("PLURK_ACCESS_TOKEN"), os.getenv("PLURK_ACCESS_TOKEN_SECRET")
 
-# 環境設定
-BACKUP_DIR = "backup_js"
-REQUEST_TOKEN_URL = "https://www.plurk.com/OAuth/request_token"
-AUTHORIZE_URL = "https://www.plurk.com/OAuth/authorize"
-ACCESS_TOKEN_URL = "https://www.plurk.com/OAuth/access_token"
+def get_last_saved_id(conn):
+    cursor = conn.cursor()
+    cursor.execute("SELECT MAX(plurk_id) FROM favorites")
+    res = cursor.fetchone()[0]
+    return res if res else 0
 
 def base36_encode(number):
     chars = '0123456789abcdefghijklmnopqrstuvwxyz'
@@ -86,216 +91,169 @@ def base36_encode(number):
         res = chars[i] + res
     return res
 
-def get_last_saved_id():
-    if not os.path.exists(BACKUP_DIR):
-        return 0
-
-    last_id = 0
-    files = [f for f in os.listdir(BACKUP_DIR) if f.endswith(".js") and f != "manifest.js"]
-
-    if not files:
-        return 0
-
-    for filename in files:
-        with open(os.path.join(BACKUP_DIR, filename), "r", encoding="utf-8") as f:
-            content = f.read()
-            ids = re.findall(r'"plurk_id":\s*(\d+)', content)
-            if ids:
-                last_id = max(last_id, max(map(int, ids)))
-
-    # 只有在真的掃描完所有檔案都沒 ID 時才會是 0
-    return last_id
-
-def get_new_tokens(ck, cs):
-    oauth = OAuth1(ck, client_secret=cs)
-    r = requests.post(REQUEST_TOKEN_URL, auth=oauth)
-    creds = parse_qs(r.text)
-    req_token = creds.get('oauth_token')[0]
-    req_secret = creds.get('oauth_token_secret')[0]
-    print(f"\n請開啟網頁進行授權：\n{AUTHORIZE_URL}?oauth_token={req_token}")
-    verifier = safe_input("\n請輸入驗證碼: ").strip()
-    oauth = OAuth1(ck, client_secret=cs, resource_owner_key=req_token,
-                   resource_owner_secret=req_secret, verifier=verifier)
-    r = requests.post(ACCESS_TOKEN_URL, auth=oauth)
-    final_creds = parse_qs(r.text)
-    return final_creds.get('oauth_token')[0], final_creds.get('oauth_token_secret')[0]
-
-def update_manifest(backup_dir):
-    months = [f[:-3] for f in os.listdir(backup_dir) if f.endswith(".js") and f != "manifest.js"]
-    months.sort(reverse=True)
-    json_content = json.dumps(months)
-    manifest_path = os.path.join(backup_dir, 'manifest.js')
-    with open(manifest_path, 'w', encoding='utf-8') as f:
-        f.write(f'if (!window.BackupData) window.BackupData = {{ plurks: {{}} }};\n')
-        f.write(f'BackupData.months = {json_content};')
-    print(f"✅ 已更新索引：{months}")
-
 # ==========================================
-# (1) & (2) 新增功能：選擇模式邏輯
+# 備份模式選擇
 # ==========================================
-
 def select_backup_mode(last_saved_id):
     print("\n請選擇備份模式：")
-    print(f"1. 指定日期重抓 (檢查從指定日期到今天的所有最愛)")
+    print("1. 指定日期重抓 (檢查從指定日期到今天的所有最愛)")
+    print(f"2. 增量備份模式 (檢查 ID: {last_saved_id} 之後的新噗)")
+    print("3. 完整備份模式 (重新產出所有歷史紀錄 JS)")
 
-    if last_saved_id > 0:
-        print(f"2. 增量備份模式 (僅檢查上次備份 ID: {last_saved_id} 之後的新噗)")
-        print(f"3. 完整備份模式 (強制重新抓取所有歷史紀錄)")
-        default_choice = "2"
-    else:
-        # 當 last_saved_id == 0，代表這是第一次備份或備份檔不存在
-        print(f"2. 完整備份模式 (未偵測到現有備份，將抓取所有紀錄)")
-        default_choice = "2"
-
-    choice = safe_input(f"請輸入選項 [1/2/3] (預設 {default_choice}): ", default_choice).strip()
+    choice = safe_input("請輸入選項 [1/2/3] (預設 2): ", "2").strip()
 
     if choice == "1":
-        while True:
-            date_str = input("請輸入開始日期 (格式 YYYYMMDD，例如 20251201): ").strip()
-            try:
-                target_date = datetime.strptime(date_str, "%Y%m%d")
-                return 'date', target_date
-            except ValueError:
-                print("❌ 格式錯誤，請重新輸入。")
-
+        date_str = input("請輸入開始日期 (YYYYMMDD): ").strip()
+        return 'date', datetime.strptime(date_str, "%Y%m%d")
     elif choice == "3":
-        # 使用者明確要求完整備份，強制將 ID 設為 0
-        print("🚀 執行【完整備份】，將掃描所有歷史紀錄...")
-        return 'id', 0
-
-    elif choice == "2":
-        if last_saved_id == 0:
-            print("🚀 未發現舊紀錄，執行【完整備份】...")
-            return 'id', 0
-        else:
-            print(f"🚀 執行【增量備份】，自 ID: {last_saved_id} 起...")
-            return 'id', last_saved_id
-
-    # 預防性處理：若輸入錯誤選項，且有舊 ID 則走增量，無則走完整
-    return ('id', last_saved_id) if last_saved_id > 0 else ('id', 0)
+        return 'full', 0
+    return 'id', last_saved_id
 
 # ==========================================
-# (3) 新增功能：獨立的備份執行邏輯
+# JS 產出邏輯
 # ==========================================
-def run_backup_task(plurk, mode_type, criteria_value):
-    """
-    執行備份的主要迴圈與儲存邏輯
-    """
-    if not os.path.exists(BACKUP_DIR):
-        os.makedirs(BACKUP_DIR)
+def export_js_files(conn, mode_type):
+    cursor = conn.cursor()
+    months_to_update = set()
 
+    if mode_type == 'full':
+        cursor.execute("SELECT DISTINCT strftime('%Y_%m', datetime(posted, 'weekday 0', '-7 days')) as ym FROM favorites") # 簡化逻辑：直接從資料獲取所有月份
+        cursor.execute("SELECT posted FROM favorites")
+        for row in cursor.fetchall():
+            dt = datetime.strptime(row[0], "%a, %d %b %Y %H:%M:%S GMT")
+            months_to_update.add(dt.strftime("%Y_%m"))
+    else:
+        if os.path.exists(TRACK_FILE):
+            with open(TRACK_FILE, "r", encoding="utf-8") as f:
+                months_to_update = {line.strip() for line in f if line.strip()}
+
+    if not months_to_update:
+        print("🙌 無需更新 JS 檔案。")
+        return
+
+    print(f"💾 正在產出 JS 檔案: {sorted(list(months_to_update))}")
+    for ym in months_to_update:
+        # 這裡從資料庫篩選該月份資料 (使用 LIKE 比對 posted 內容)
+        # 注意：API 的日期格式為 "Fri, 05 Jun 2009..."，需精準轉換或比對
+        cursor.execute("SELECT raw_json FROM favorites ORDER BY plurk_id DESC")
+        all_data = [json.loads(row[0]) for row in cursor.fetchall()]
+
+        # 篩選屬於該月份的噗文
+        monthly_plurks = []
+        for p in all_data:
+            p_dt = datetime.strptime(p['posted'], "%a, %d %b %Y %H:%M:%S GMT")
+            if p_dt.strftime("%Y_%m") == ym:
+                p['plurk_url'] = f"https://www.plurk.com/p/{base36_encode(p['plurk_id'])}"
+                monthly_plurks.append(p)
+
+        if monthly_plurks:
+            file_path = os.path.join(BACKUP_DIR, f"{ym}.js")
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write('if (!window.BackupData) window.BackupData = { plurks: {} };\n')
+                f.write(f'BackupData.plurks["{ym}"] = {json.dumps(monthly_plurks, ensure_ascii=False)};')
+
+    # 更新 manifest
+    all_js = sorted([f[:-3] for f in os.listdir(BACKUP_DIR) if f.endswith(".js") and f != "manifest.js"], reverse=True)
+    with open(os.path.join(BACKUP_DIR, 'manifest.js'), 'w', encoding='utf-8') as f:
+        f.write('if (!window.BackupData) window.BackupData = { plurks: {} };\n')
+        f.write(f'BackupData.months = {json.dumps(all_js)};')
+
+# ==========================================
+# 核心備份任務
+# ==========================================
+def run_backup_task(plurk, conn, mode_type, criteria_value):
+    # 模式 1 & 2 開頭先刪除追蹤檔
+    if mode_type in ['id', 'date'] and os.path.exists(TRACK_FILE):
+        os.remove(TRACK_FILE)
+
+    affected_months = set()
     offset = None
-    monthly_data = {}
-    total_processed = 0
     stop_backup = False
+    total_new = 0
 
     print("\n--- 開始抓取最愛噗文 ---")
 
+    # 若是 full 模式，其實可以設定 criteria_value = 0 走 id 模式邏輯
+    actual_mode = 'id' if mode_type == 'full' else mode_type
+
     while not stop_backup:
-        # 準備 API 參數
         params = {'filter': 'favorite', 'limit': 30}
-        if offset:
-            params['offset'] = offset
+        if offset: params['offset'] = offset
 
-        # 呼叫 API
         res = plurk.callAPI('/APP/Timeline/getPlurks', params)
+        if not res or not res.get('plurks'): break
 
-        if res and 'plurks' in res and len(res['plurks']) > 0:
-            plurks = res['plurks']
-            for p in plurks:
-                # 1. 處理時間戳記 (解析 API 回傳的 GMT 格式)
-                p_date = datetime.strptime(p['posted'], "%a, %d %b %Y %H:%M:%S GMT")
+        for p in res['plurks']:
+            p_date = datetime.strptime(p['posted'], "%a, %d %b %Y %H:%M:%S GMT")
 
-                # 2. 檢查停止條件
-                if mode_type == 'id':
-                    if p['plurk_id'] <= criteria_value:
-                        print(f"🏁 已追上現有紀錄 (ID: {p['plurk_id']})，停止抓取。")
-                        stop_backup = True
-                        break
-                elif mode_type == 'date':
-                    if p_date < criteria_value:
-                        print(f"🏁 已到達指定日期邊界 ({p_date.strftime('%Y-%m-%d')})，停止抓取。")
-                        stop_backup = True
-                        break
+            # 停止條件檢查
+            if actual_mode == 'id' and p['plurk_id'] <= criteria_value:
+                stop_backup = True; break
+            if actual_mode == 'date' and p_date < criteria_value:
+                stop_backup = True; break
 
-                # 3. 整理資料
-                ym = p_date.strftime("%Y_%m")
-                if ym not in monthly_data:
-                    monthly_data[ym] = []
+            # 存入資料庫
+            save_to_db(conn, p)
+            affected_months.add(p_date.strftime("%Y_%m"))
+            total_new += 1
 
-                p['plurk_url'] = f"https://www.plurk.com/p/{base36_encode(p['plurk_id'])}"
-                monthly_data[ym].append(p)
-                total_processed += 1
+        if stop_backup: break
+        offset = datetime.strptime(res['plurks'][-1]['posted'], "%a, %d %b %Y %H:%M:%S GMT").isoformat()
+        print(f"已讀取 {total_new} 則...")
+        time.sleep(1)
 
-            if stop_backup: break
+    # 紀錄受影響月份
+    if mode_type != 'full' and affected_months:
+        with open(TRACK_FILE, "w", encoding="utf-8") as f:
+            f.write("\n".join(sorted(list(affected_months))))
 
-            # 4. 更新 offset (關鍵修正：轉換為 ISO 格式)
-            # 取最後一則噗文的時間作為下一頁的起點
-            last_posted_str = plurks[-1]['posted']
-            last_dt = datetime.strptime(last_posted_str, "%a, %d %b %Y %H:%M:%S GMT")
-            offset = last_dt.isoformat()
+    # 執行 JS 產出同步
+    export_js_files(conn, mode_type)
+    print(f"\n🎉 任務完成！本次新增/檢查了 {total_new} 則噗文。")
 
-            print(f"目前已讀取 {total_processed} 則噗文 (下一頁起點: {offset})...")
-            time.sleep(1)
-        else:
-            # 若 res 為空或格式不對則停止
-            break
 
-    # --- 儲存與去重複邏輯 ---
-    if total_processed == 0:
-        print("🙌 沒有需更新的噗文。")
-        return
+def setup_env():
+    """建立 .env 範本並引導使用者操作"""
+    with open("tool.env", "w", encoding="utf-8") as f:
+        f.write("PLURK_CONSUMER_KEY=\n")
+        f.write("PLURK_CONSUMER_SECRET=\n")
+        f.write("PLURK_ACCESS_TOKEN=\n")
+        f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
 
-    print("\n💾 正在寫入檔案並處理重複項...")
-    for ym, new_plurks_list in monthly_data.items():
-        file_path = os.path.join(BACKUP_DIR, f"{ym}.js")
-        existing_data = []
-
-        if os.path.exists(file_path):
-            with open(file_path, "r", encoding="utf-8") as f:
-                content = f.read()
-                try:
-                    json_str = content.split(f'BackupData.plurks["{ym}"] = ')[1].rstrip(';')
-                    existing_data = json.loads(json_str)
-                except Exception:
-                    existing_data = []
-
-        # 合併並以 ID 去重
-        plurk_map = {p['plurk_id']: p for p in existing_data}
-        for p in new_plurks_list:
-            plurk_map[p['plurk_id']] = p
-
-        combined = sorted(plurk_map.values(), key=lambda x: x['plurk_id'], reverse=True)
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(f'if (!window.BackupData) window.BackupData = {{ plurks: {{}} }};\n')
-            f.write(f'BackupData.plurks["{ym}"] = {json.dumps(combined, ensure_ascii=False)};')
-
-    update_manifest(BACKUP_DIR)
-    print(f"\n🎉 處理完成！共處理 {total_processed} 則噗文。")
+    print("❌ 找不到 tool.env，已為您建立範本。")
+    print("--------------------------------------------------")
+    print("引導流程：")
+    print("1. 請至 https://www.plurk.com/PlurkApp/ 申請 App。")
+    print("2. 申請教學請見https://github.com/rkwithb/Plurk-Get-Favorites-Tool/blob/main/Tutorial/plurkappkey.md")
+    print("3. 將四個key填入 tool.env 檔案中並儲存。")
+    print("4. 重新執行此程式。")
+    print("--------------------------------------------------")
+    return # 結束函數
 
 def main():
+
+    # ---「引導流程」的新位置 ---
+    if not os.path.exists("tool.env"):
+        return setup_env()  # 執行引導並直接結束 main
+    # --- 之後才是核心邏輯 ---
     ck, cs, at, as_ = get_keys()
+    if not ck or not cs or not at or not as_: return
 
-    if not ck or not cs:
-        return
-
-    if not at or not as_:
-        at, as_ = get_new_tokens(ck, cs)
-        save_keys(ck, cs, at, as_)
-
-    # 初始化 API
+    conn = init_db()
     plurk = PlurkAPI(ck, cs)
     plurk.authorize(at, as_)
 
-    # 取得上次備份 ID
-    last_saved_id = get_last_saved_id()
+    last_id = get_last_saved_id(conn)
+    if last_id == 0:
+        print("💡 偵測到尚未有備份紀錄，將自動執行【模式 3：完整備份】...")
+        mode_type, criteria = 'full', 0
+    else:
+        # 正常選擇模式
+        mode_type, criteria = select_backup_mode(last_id)
 
-    # (1) & (2) 呼叫選擇模式函式
-    mode_type, criteria_value = select_backup_mode(last_saved_id)
-
-    # (3) 呼叫備份執行函式
-    run_backup_task(plurk, mode_type, criteria_value)
+    # 4. 執行任務
+    run_backup_task(plurk, conn, mode_type, criteria)
+    conn.close()
 
 if __name__ == "__main__":
     main()

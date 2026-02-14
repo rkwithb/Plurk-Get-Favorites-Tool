@@ -16,3 +16,5 @@ dist/
 backup_js/
 msg.txt
 note/
+*.tmp
+*.db
