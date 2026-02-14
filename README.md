@@ -12,14 +12,14 @@
 
 本工具已從純 JS 儲存升級為 **SQLite + JS 雙重機制**：
 
-1.  **SQLite (plurk_favorites.db)**: 作為「原始資料庫 (Source of Truth)」。所有從 Plurk API 抓取的資料會先完整存入資料庫。即使您在 Plurk 上取消了最愛，資料庫內仍會保留備份。
+1.  **SQLite (plurk_favorites.db)**: 作為「原始資料庫 (Source of Truth)」。所有從 Plurk API 抓取的資料會先完整存入資料庫。即使在 Plurk 上取消了最愛，資料庫內仍會保留備份。
 2.  **JavaScript 檔案**: 僅作為前端顯示使用。程式會根據資料庫內容自動產出 `YYYY_MM.js` 檔案。
 3.  **局部更新 (Performance)**: 
     - 在「增量備份」模式下，程式僅重新產生「受影響月份」的 JS 檔案，大幅減少磁碟 I/O 並加快大型帳號的同步速度。
 
 ### ⚠️ 隱私與備份提醒
 
-- **隱私安全**: `plurk_favorites.db` 包含您的私人最愛紀錄，預設已加入 `.gitignore`。**請勿**將此檔案上傳至公開的 GitHub repository。
+- **隱私安全**: `plurk_favorites.db` 包含自己的私人最愛紀錄，**請勿**將此檔案上傳至公開的 公開的網路空間。github使用者請預設已加入 `.gitignore`。
 - **手動備份**: 若要更換電腦執行備份，請務必手動複製整個 `backup_js/` 資料夾（包含 `.db` 檔案），否則新環境會判定為首次執行並觸發完整備份。
 - **資料復原**: 若 JS 檔案毀損，只要 `.db` 檔案還在，執行「模式 3：完整備份」即可重新產生所有 JS 檔案。
 ---
