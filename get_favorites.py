@@ -16,8 +16,12 @@ import requests
 from requests_oauthlib import OAuth1
 from plurk_oauth import PlurkAPI
 
+
 # 匯入網頁資源
 from web_assets import INDEX_HTML_CONTENT, STYLE_CSS_CONTENT
+
+# for debugging
+import traceback
 
 # ==========================================
 # 初始化與路徑設定 (加入 BASE_DIR 保護)
@@ -47,21 +51,27 @@ def safe_input(prompt, default="n"):
         return input(prompt).lower()
     except (EOFError, OSError): return default
 
+
+
 def safe_print(*args, **kwargs):
-    """
-    智慧型輸出：
-    在 GitHub Actions 環境下忽略 I/O 錯誤以確保流程順暢；
-    在一般環境下則維持標準行為，確保錯誤可見。
-    """
     try:
         print(*args, **kwargs)
-    except Exception:
-        # 僅在 GitHub Actions 靜默錯誤
-        if os.getenv('GITHUB_ACTIONS') == 'true':
-            pass
+    except ValueError as e:
+        if "closed file" in str(e) and os.getenv('GITHUB_ACTIONS') == 'true':
+            # 只有在 CI 遇到 closed file 時，改用 stderr 輸出偵錯資訊
+            try:
+                sys.__stderr__.write(f"\n[DEBUG] Detected closed stdout during safe_print!\n")
+                sys.__stderr__.write(f"[DEBUG] Content: {args}\n")
+                # 這會告訴我們是哪一行代碼觸發了失敗
+                traceback.print_stack(file=sys.__stderr__)
+            except:
+                pass
         else:
-            # 使用者環境下，若 print 失敗則報錯，不掩蓋問題
-            raise
+            if os.getenv('GITHUB_ACTIONS') == 'true': pass
+            else: raise
+    except Exception:
+        if os.getenv('GITHUB_ACTIONS') == 'true': pass
+        else: raise
 
 # ==========================================
 # 網頁檔案自動檢查 (新增功能)
