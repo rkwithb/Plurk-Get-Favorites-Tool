@@ -4,98 +4,151 @@ on:
   push:
     tags:
       - 'v*'
-  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  # ====================================================
+  # JOB 1: 建置 (Build)
+  # ====================================================
   build:
-    name: 針對 ${{ matrix.os }} 進行建置
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [windows-latest, macos-latest]
 
     steps:
-      - name: 檢出原始碼
+      - name: 檢出原始碼 (Checkout)
         uses: actions/checkout@v4
 
-      - name: 設定 Python 環境
+      - name: 設定 Python 環境 (Setup Python)
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 安裝相依套件
-        shell: bash
+      - name: 安裝相依套件 (Install Dependencies)
         run: |
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Set Version
+      - name: 設定版本變數 (Set Version)
         shell: bash
-        run: |
-          # 從 Tag 中提取版本號並存入環境變數
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      # 在 build.yml 中修改 Windows 打包指令
+      # ------------------------------------------------
+      # Windows 打包邏輯
+      # ------------------------------------------------
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
-          # 移除 --windowed，保留預設的 console 模式
-          pyinstaller --onefile --name "Plurk_Archive_Win_${{ env.VERSION }}" get_favorites.py
+          EXE_NAME="Plurk_Archive_Win_${{ env.VERSION }}"
+          # --onefile: 單一檔案
+          # --clean: 清除快取
+          pyinstaller --onefile --clean --name "$EXE_NAME" get_favorites.py
 
+      # ------------------------------------------------
+      # macOS 打包邏輯 (含 ZIP 壓縮)
+      # ------------------------------------------------
       - name: 打包 (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          pyinstaller --onefile --name "Plurk_Archive_Mac_${{ env.VERSION }}" get_favorites.py
+          EXE_NAME="Plurk_Archive_Mac_${{ env.VERSION }}"
 
-      - name: 暫存成品
+          # 1. 產生執行檔
+          pyinstaller --onefile --clean --name "$EXE_NAME" get_favorites.py
+
+          # 2. 進入 dist 資料夾進行壓縮 (避免壓縮檔內包含路徑)
+          cd dist
+          zip -r "${EXE_NAME}.zip" "$EXE_NAME"
+
+          # 3. 刪除原始執行檔，只保留 zip (避免上傳重複檔案)
+          rm "$EXE_NAME"
+
+      # ------------------------------------------------
+      # 上傳成品到 Actions 暫存區
+      # ------------------------------------------------
+      - name: 暫存成品 (Upload Artifacts)
         uses: actions/upload-artifact@v4
         with:
           name: executable-${{ matrix.os }}
           path: |
-            dist/Plurk_Archive_Win_*
-            dist/Plurk_Archive_Mac_*
+            dist/*.exe
+            dist/*.zip
 
+  # ====================================================
+  # JOB 2: 測試與驗證 (Test)
+  # ====================================================
   test:
-    name: 測試執行檔 (${{ matrix.os }})
+    name: Verify Files (${{ matrix.os }})
     needs: build
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
 
     steps:
-      - name: 下載該系統的成品
+      - name: 下載成品 (Download Artifacts)
         uses: actions/download-artifact@v4
         with:
           name: executable-${{ matrix.os }}
 
-      - name: 執行驗證 (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        # 使用 bash 處理萬用字元 * 以確保正確找到檔案
-        run: ./Plurk_Archive_Win_*.exe --help || echo "啟動成功（忽略無 GUI 錯誤）"
-
-      - name: 執行驗證 (macOS)
-        if: matrix.os == 'macos-latest'
+      # ------------------------------------------------
+      # 測試邏輯：解壓 (Mac) -> 執行 -> 檢查檔案
+      # ------------------------------------------------
+      - name: 執行與驗證 (Run and Verify)
         shell: bash
         run: |
-          chmod +x Plurk_Archive_Mac_*
-          ./Plurk_Archive_Mac_* --help || echo "啟動成功（忽略無 GUI 錯誤）"
+          echo "Step 1: 準備執行環境..."
 
+          if [ "${{ matrix.os }}" == "macos-latest" ]; then
+            # macOS 需要解壓縮 zip
+            unzip *.zip
+            # 賦予執行權限 (確保解壓後可執行)
+            chmod +x Plurk_Archive_Mac_*
+            # 設定執行指令
+            RUN_CMD="./Plurk_Archive_Mac_*"
+          else
+            # Windows 直接執行 exe
+            RUN_CMD="./Plurk_Archive_Win_*.exe"
+          fi
+
+          echo "Step 2: 執行程式 (使用 --help)..."
+          # 執行程式。如果是 Windows，Git Bash 會正確處理 exe。
+          # || true 確保即使 --help 回傳非 0 狀態碼 (視 argparse 實作而定) 也不會中斷流程
+          $RUN_CMD --help || true
+
+          echo "Step 3: 檢查是否自動生成網頁資源..."
+          # 檢查 index.html
+          if [ -f "index.html" ]; then
+            echo "✅ SUCCESS: index.html found."
+          else
+            echo "❌ ERROR: index.html NOT found!"
+            exit 1
+          fi
+
+          # 檢查 style.css
+          if [ -f "style.css" ]; then
+            echo "✅ SUCCESS: style.css found."
+          else
+            echo "❌ ERROR: style.css NOT found!"
+            exit 1
+          fi
+
+  # ====================================================
+  # JOB 3: 發布 (Release)
+  # ====================================================
   release:
-    name: 建立發佈版本
+    name: Create GitHub Release
     needs: test
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: 下載所有成品
+      - name: 下載所有成品 (Download All Artifacts)
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
