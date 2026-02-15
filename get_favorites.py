@@ -282,7 +282,7 @@ def main():
         return
 
     print("==================================================")
-    print("🚀 Plurk Favorites Backup Tool v2.1 (SQLite Edition)")
+    print("🚀 Plurk Favorites Backup Tool v2.0.1 (SQLite Edition)")
     print(f"📅 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"📂 根目錄: {BASE_DIR}")
     print("==================================================")
