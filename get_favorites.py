@@ -86,23 +86,15 @@ def check_web_files():
     missing = [p for p in files_to_check if not os.path.exists(p)]
 
     if missing:
-        try:
-            # 使用 sys.stdout.write 並配合 flush，或者加 try-except 保護 print
-            safe_print("💡 偵測到缺少網頁介面檔案，正在為您自動建立...")
-        except Exception: pass
-
+        safe_print("💡 偵測到缺少網頁介面檔案，正在為您自動建立...") # 這樣寫就很乾淨
         try:
             for path in missing:
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(files_to_check[path])
-                try:
-                    safe_print(f"✅ 已建立: {os.path.basename(path)}")
-                except Exception: pass
+            safe_print(f"✅ 已建立: {os.path.basename(path)}")
             return True
-        except Exception as e:
-            # 這裡至少要把錯誤寫到 stderr，或者完全silent以確保 CI 通過
+        except Exception:
             return False
-    return True
 
 # ==========================================
 # 資料庫操作邏輯
