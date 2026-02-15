@@ -126,10 +126,17 @@ jobs:
             RUN_CMD="./Plurk_Archive_Win_*.exe"
           fi
 
+          echo "--- Debug: 執行前目錄狀態 ---"
+          pwd
+          ls -F
+
           echo "Step 2: 執行程式 (使用 --help)..."
           # 執行程式。如果是 Windows，Git Bash 會正確處理 exe。
           # || true 確保即使 --help 回傳非 0 狀態碼 (視 argparse 實作而定) 也不會中斷流程
           $RUN_CMD --help || true
+
+          echo "Debug: 列出當前目錄所有檔案"
+          ls -R
 
           echo "Step 3: 檢查是否自動生成網頁資源..."
           # 檢查 index.html
