@@ -36,8 +36,17 @@ jobs:
 
       - name: 設定版本變數 (Set Version)
         shell: bash
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
+        run: |
+          # 檢查是否為 Tag 觸發 (refs/tags/v1.0)
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+          # 移除前綴，只留下 v1.0
+          CLEAN_VERSION=${GITHUB_REF#refs/tags/}
+          else
+          # 非 Tag 觸發（如手動執行或 push），改用 run_number，避免斜線
+          CLEAN_VERSION="test-build-${GITHUB_RUN_NUMBER}"
+          fi
+          # 將處理後不含斜線的字串存入環境變數
+          echo "VERSION=${CLEAN_VERSION}" >> $GITHUB_ENV
       # ------------------------------------------------
       # Windows 打包邏輯
       # ------------------------------------------------
