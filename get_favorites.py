@@ -77,24 +77,20 @@ def safe_print(*args, **kwargs):
 # 網頁檔案自動檢查 (新增功能)
 # ==========================================
 def check_web_files():
-    """檢查 index.html 與 style.css 是否存在，若無則自動建立"""
-
-    files_to_check = {
-        INDEX_PATH: INDEX_HTML_CONTENT,
-        STYLE_PATH: STYLE_CSS_CONTENT
-    }
+    files_to_check = {INDEX_PATH: INDEX_HTML_CONTENT, STYLE_PATH: STYLE_CSS_CONTENT}
     missing = [p for p in files_to_check if not os.path.exists(p)]
 
     if missing:
-        safe_print("💡 偵測到缺少網頁介面檔案，正在為您自動建立...") # 這樣寫就很乾淨
+        safe_print("💡 偵測到缺少網頁介面檔案，正在為您自動建立...")
         try:
             for path in missing:
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(files_to_check[path])
-            safe_print(f"✅ 已建立: {os.path.basename(path)}")
+                safe_print(f"✅ 已建立: {os.path.basename(path)}")
             return True
         except Exception:
             return False
+    return True # 確保沒缺少檔案時也回傳 True
 
 # ==========================================
 # 資料庫操作邏輯
@@ -126,7 +122,7 @@ def save_to_db(conn, p):
 def get_keys():
     env_file = os.path.join(BASE_DIR, "tool.env")
     if not os.path.exists(env_file):
-        print(f"❌ 找不到 {env_file}")
+        safe_print(f"❌ 找不到 {env_file}")
         return None, None, None, None
     load_dotenv(env_file)
     return os.getenv("PLURK_CONSUMER_KEY"), os.getenv("PLURK_CONSUMER_SECRET"), \
@@ -151,15 +147,15 @@ def base36_encode(number):
 # 備份模式選擇
 # ==========================================
 def select_backup_mode(last_saved_id):
-    print("\n請選擇備份模式：")
-    print("1. 指定日期重抓 (檢查從指定日期到今天的所有最愛)")
-    print(f"2. 增量備份模式 (檢查 ID: {last_saved_id} 之後的新噗)")
-    print("3. 完整備份模式 (重新備份所有歷史紀錄 JS)")
+    safe_print("\n請選擇備份模式：")
+    safe_print("1. 指定日期重抓 (檢查從指定日期到今天的所有最愛)")
+    safe_print(f"2. 增量備份模式 (檢查 ID: {last_saved_id} 之後的新噗)")
+    safe_print("3. 完整備份模式 (重新備份所有歷史紀錄 JS)")
 
     choice = safe_input("請輸入選項 [1/2/3] (預設 2): ", "2").strip()
 
     if choice == "1":
-        date_str = input("請輸入開始日期 (YYYYMMDD 例: 20251201): ").strip()
+        date_str = safe_input("請輸入開始日期 (YYYYMMDD 例: 20251201): ").strip()
         return 'date', datetime.strptime(date_str, "%Y%m%d")
     elif choice == "3":
         return 'full', 0
@@ -184,10 +180,10 @@ def export_js_files(conn, mode_type):
                 months_to_update = {line.strip() for line in f if line.strip()}
 
     if not months_to_update:
-        print("🙌 無需更新 JS 檔案。")
+        safe_print("🙌 無需更新 JS 檔案。")
         return
 
-    print(f"💾 正在產出 JS 檔案: {sorted(list(months_to_update))}")
+    safe_print(f"💾 正在產出 JS 檔案: {sorted(list(months_to_update))}")
     for ym in months_to_update:
         # 這裡從資料庫篩選該月份資料 (使用 LIKE 比對 posted 內容)
         # 注意：API 的日期格式為 "Fri, 05 Jun 2009..."，需精準轉換或比對
@@ -226,7 +222,7 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
     stop_backup = False
     total_new = 0
 
-    print("\n--- 開始抓取最愛噗文 ---")
+    safe_print("\n--- 開始抓取最愛噗文 ---")
     # 若是 full 模式，其實可以設定 criteria_value = 0 走 id 模式邏輯
     actual_mode = 'id' if mode_type == 'full' else mode_type
 
@@ -252,7 +248,7 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
 
         if stop_backup: break
         offset = datetime.strptime(res['plurks'][-1]['posted'], "%a, %d %b %Y %H:%M:%S GMT").isoformat()
-        print(f"已讀取 {total_new} 則...")
+        safe_print(f"已讀取 {total_new} 則...")
         time.sleep(1)
 
     # 紀錄受影響月份
@@ -261,7 +257,7 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
             f.write("\n".join(sorted(list(affected_months))))
 
     export_js_files(conn, mode_type)
-    print(f"\n🎉 任務完成！本次新增/檢查了 {total_new} 則噗文。")
+    safe_print(f"\n🎉 任務完成！本次新增/檢查了 {total_new} 則噗文。")
 
 
 def setup_env():
@@ -273,14 +269,14 @@ def setup_env():
         f.write("PLURK_ACCESS_TOKEN=\n")
         f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
 
-    print(f"❌ 找不到 tool.env，已在 {BASE_DIR} 為您建立範本。")
-    print("--------------------------------------------------")
-    print("引導流程：")
-    print("1. 請至 https://www.plurk.com/PlurkApp/ 申請 App。")
-    print("2. 申請教學請見https://github.com/rkwithb/Plurk-Get-Favorites-Tool/blob/main/Tutorial/plurkappkey.md")
-    print("3. 將四個key填入 tool.env 檔案中並儲存。")
-    print("4. 重新執行此程式。")
-    print("--------------------------------------------------")
+    safe_print(f"❌ 找不到 tool.env，已在 {BASE_DIR} 為您建立範本。")
+    safe_print("--------------------------------------------------")
+    safe_print("引導流程：")
+    safe_print("1. 請至 https://www.plurk.com/PlurkApp/ 申請 App。")
+    safe_print("2. 申請教學請見https://github.com/rkwithb/Plurk-Get-Favorites-Tool/blob/main/Tutorial/plurkappkey.md")
+    safe_print("3. 將四個key填入 tool.env 檔案中並儲存。")
+    safe_print("4. 重新執行此程式。")
+    safe_print("--------------------------------------------------")
     return
 
 def main():
@@ -300,14 +296,14 @@ def main():
 
     ck, cs, at, as_ = get_keys()
     if not ck or not cs or not at or not as_:
-        print("❌ tool.env 金鑰填寫不完整。")
+        safe_print("❌ tool.env 金鑰填寫不完整。")
         return
 
-    print("==================================================")
-    print("🚀 Plurk Favorites Backup Tool v2.0.1 (SQLite Edition)")
-    print(f"📅 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"📂 根目錄: {BASE_DIR}")
-    print("==================================================")
+    safe_print("==================================================")
+    safe_print("🚀 Plurk Favorites Backup Tool v2.0.1 (SQLite Edition)")
+    safe_print(f"📅 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    safe_print(f"📂 根目錄: {BASE_DIR}")
+    safe_print("==================================================")
 
     conn = init_db()
     plurk = PlurkAPI(ck, cs)
@@ -315,11 +311,11 @@ def main():
 
     last_id = get_last_saved_id(conn)
     if last_id == 0:
-        print("💡 偵測到尚未有備份紀錄，將自動執行【模式 3：完整備份】...")
+        safe_print("💡 偵測到尚未有備份紀錄，將自動執行【模式 3：完整備份】...")
         mode_type, criteria = 'full', 0
     else:
         # 正常選擇模式
-        print(f"🔍 上次備份最後 ID: {last_id}")
+        safe_print(f"🔍 上次備份最後 ID: {last_id}")
         mode_type, criteria = select_backup_mode(last_id)
 
     # 4. 執行任務
