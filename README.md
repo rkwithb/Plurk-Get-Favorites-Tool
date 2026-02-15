@@ -93,7 +93,8 @@ PLURK_ACCESS_TOKEN_SECRET=
     * [密碼保護功能相關討論](https://dev.to/charca/password-protection-for-cloudflare-pages-8ma)
 * **GitHub Pages**
     * 🚫 **注意：** 此平台預設開放給所有人，**無密碼保護功能**。
---
+
+---
 
 ## 🛠 深度開發資訊 (For Developers)
 
