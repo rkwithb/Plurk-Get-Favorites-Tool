@@ -57,6 +57,28 @@ def safe_print(*args, **kwargs):
             if os.getenv('GITHUB_ACTIONS') != 'true': raise
 
 # ==========================================
+# OS Related 初始化
+# ==========================================
+def init_windows_console():
+    """集中處理 Windows 終端機編碼與 Emoji 顯示問題"""
+    if sys.platform == "win32":
+        # 1. 嘗試切換 Code Page 到 UTF-8 (65001)
+        try:
+            import subprocess
+            subprocess.run(['chcp', '65001'], shell=True, check=False, capture_output=True)
+        except Exception:
+            pass
+
+        # 2. 原有的 stdout 重導向邏輯
+        if hasattr(sys.stdout, 'buffer') and not sys.stdout.closed:
+            try:
+                if getattr(sys.stdout, 'encoding', '').lower() != 'utf-8':
+                    import io
+                    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
+            except Exception:
+                pass
+
+# ==========================================
 # 資料庫操作邏輯
 # ==========================================
 def init_db():
@@ -254,12 +276,7 @@ def setup_env():
 
 def main():
     # 弱化編碼重導向：僅在必要且安全時執行
-    if sys.platform == "win32" and hasattr(sys.stdout, 'buffer') and not sys.stdout.closed:
-        try:
-            # 檢查目前是否已經是 utf-8，避免重複封裝
-            if getattr(sys.stdout, 'encoding', '').lower() != 'utf-8':
-                sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
-        except Exception: pass
+    init_windows_console()
 
     env_file = os.path.join(BASE_DIR, "tool.env")
     if not os.path.exists(env_file):
