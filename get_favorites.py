@@ -2,7 +2,6 @@
 # Licensed under CC BY-NC 4.0 (Non-Commercial Use Only)
 # Disclaimer: Use at your own risk. The author is not responsible for any damages.
 
-
 import io
 import json
 import os
@@ -17,17 +16,26 @@ import requests
 from requests_oauthlib import OAuth1
 from plurk_oauth import PlurkAPI
 
+
+# for debugging
+import traceback
+
 # ==========================================
-# 初始化與路徑設定
+# 初始化與路徑設定 (加入 BASE_DIR 保護)
 # ==========================================
-BACKUP_DIR = "backup_js"
+# 確保在 CLI/EXE 環境下都能精準定位執行檔所在目錄
+BASE_DIR = os.path.dirname(os.path.abspath(sys.argv[0] if getattr(sys.modules['__main__'], '__file__', None) else sys.executable))
+
+BACKUP_DIR = os.path.join(BASE_DIR, "backup_js")
 DB_PATH = os.path.join(BACKUP_DIR, "plurk_favorites.db")
 TRACK_FILE = os.path.join(BACKUP_DIR, "affected_months.txt")
+INDEX_PATH = os.path.join(BASE_DIR, "index.html")
+STYLE_PATH = os.path.join(BASE_DIR, "style.css")
 
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
 
-# (I/O 強健性初始化代碼略，與原版相同...)
+# (I/O 強健性初始化)
 if sys.platform == "win32":
     if sys.stdout is not None and hasattr(sys.stdout, 'buffer'):
         try:
@@ -39,6 +47,29 @@ def safe_input(prompt, default="n"):
         if not sys.stdin or not sys.stdin.isatty(): return default
         return input(prompt).lower()
     except (EOFError, OSError): return default
+
+
+
+def safe_print(*args, **kwargs):
+    try:
+        print(*args, **kwargs)
+    except ValueError as e:
+        if "closed file" in str(e) and os.getenv('GITHUB_ACTIONS') == 'true':
+            # 只有在 CI 遇到 closed file 時，改用 stderr 輸出偵錯資訊
+            try:
+                sys.__stderr__.write(f"\n[DEBUG] Detected closed stdout during print!\n")
+                sys.__stderr__.write(f"[DEBUG] Content: {args}\n")
+                # 這會告訴我們是哪一行代碼觸發了失敗
+                traceback.print_stack(file=sys.__stderr__)
+            except:
+                pass
+        else:
+            if os.getenv('GITHUB_ACTIONS') == 'true': pass
+            else: raise
+    except Exception:
+        if os.getenv('GITHUB_ACTIONS') == 'true': pass
+        else: raise
+
 
 # ==========================================
 # 資料庫操作邏輯
@@ -65,10 +96,10 @@ def save_to_db(conn, p):
     conn.commit()
 
 # ==========================================
-# 金鑰與 Token 管理 (略，與原版相同...)
+# 金鑰與 Token 管理
 # ==========================================
 def get_keys():
-    env_file = "tool.env"
+    env_file = os.path.join(BASE_DIR, "tool.env")
     if not os.path.exists(env_file):
         print(f"❌ 找不到 {env_file}")
         return None, None, None, None
@@ -98,12 +129,12 @@ def select_backup_mode(last_saved_id):
     print("\n請選擇備份模式：")
     print("1. 指定日期重抓 (檢查從指定日期到今天的所有最愛)")
     print(f"2. 增量備份模式 (檢查 ID: {last_saved_id} 之後的新噗)")
-    print("3. 完整備份模式 (重新產出所有歷史紀錄 JS)")
+    print("3. 完整備份模式 (重新備份所有歷史紀錄 JS)")
 
     choice = safe_input("請輸入選項 [1/2/3] (預設 2): ", "2").strip()
 
     if choice == "1":
-        date_str = input("請輸入開始日期 (YYYYMMDD): ").strip()
+        date_str = safe_input("請輸入開始日期 (YYYYMMDD 例: 20251201): ").strip()
         return 'date', datetime.strptime(date_str, "%Y%m%d")
     elif choice == "3":
         return 'full', 0
@@ -117,7 +148,7 @@ def export_js_files(conn, mode_type):
     months_to_update = set()
 
     if mode_type == 'full':
-        cursor.execute("SELECT DISTINCT strftime('%Y_%m', datetime(posted, 'weekday 0', '-7 days')) as ym FROM favorites") # 簡化逻辑：直接從資料獲取所有月份
+        cursor.execute("SELECT DISTINCT strftime('%Y_%m', datetime(posted, 'weekday 0', '-7 days')) as ym FROM favorites")
         cursor.execute("SELECT posted FROM favorites")
         for row in cursor.fetchall():
             dt = datetime.strptime(row[0], "%a, %d %b %Y %H:%M:%S GMT")
@@ -151,7 +182,6 @@ def export_js_files(conn, mode_type):
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write('if (!window.BackupData) window.BackupData = { plurks: {} };\n')
                 f.write(f'BackupData.plurks["{ym}"] = {json.dumps(monthly_plurks, ensure_ascii=False)};')
-
     # 更新 manifest
     all_js = sorted([f[:-3] for f in os.listdir(BACKUP_DIR) if f.endswith(".js") and f != "manifest.js"], reverse=True)
     with open(os.path.join(BACKUP_DIR, 'manifest.js'), 'w', encoding='utf-8') as f:
@@ -172,7 +202,6 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
     total_new = 0
 
     print("\n--- 開始抓取最愛噗文 ---")
-
     # 若是 full 模式，其實可以設定 criteria_value = 0 走 id 模式邏輯
     actual_mode = 'id' if mode_type == 'full' else mode_type
 
@@ -191,7 +220,6 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
                 stop_backup = True; break
             if actual_mode == 'date' and p_date < criteria_value:
                 stop_backup = True; break
-
             # 存入資料庫
             save_to_db(conn, p)
             affected_months.add(p_date.strftime("%Y_%m"))
@@ -214,13 +242,14 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
 
 def setup_env():
     """建立 .env 範本並引導使用者操作"""
-    with open("tool.env", "w", encoding="utf-8") as f:
+    env_file = os.path.join(BASE_DIR, "tool.env")
+    with open(env_file, "w", encoding="utf-8") as f:
         f.write("PLURK_CONSUMER_KEY=\n")
         f.write("PLURK_CONSUMER_SECRET=\n")
         f.write("PLURK_ACCESS_TOKEN=\n")
         f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
 
-    print("❌ 找不到 tool.env，已為您建立範本。")
+    print(f"❌ 找不到 tool.env，已在 {BASE_DIR} 為您建立範本。")
     print("--------------------------------------------------")
     print("引導流程：")
     print("1. 請至 https://www.plurk.com/PlurkApp/ 申請 App。")
@@ -228,23 +257,31 @@ def setup_env():
     print("3. 將四個key填入 tool.env 檔案中並儲存。")
     print("4. 重新執行此程式。")
     print("--------------------------------------------------")
-    return # 結束函數
+    return
 
 def main():
+    if sys.platform == "win32" and hasattr(sys.stdout, 'buffer'):
+        try:
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', line_buffering=True)
+        except Exception: pass
 
-    # ---「引導流程」的新位置 ---
-    if not os.path.exists("tool.env"):
-        return setup_env()  # 執行引導並直接結束 main
-    # --- 之後才是核心邏輯 ---
+    # 1. 檢查 tool.env
+    env_file = os.path.join(BASE_DIR, "tool.env")
+    if not os.path.exists(env_file):
+        return setup_env()
+
+
     ck, cs, at, as_ = get_keys()
-    if not ck or not cs or not at or not as_: return
+    if not ck or not cs or not at or not as_:
+        print("❌ tool.env 金鑰填寫不完整。")
+        return
 
-
-    # (setup_env 檢查後)
     print("==================================================")
-    print("🚀 Plurk Favorites Backup Tool v2.0 (SQLite Edition)")
+    print("🚀 Plurk Favorites Backup Tool v2.0.1 (SQLite Edition)")
     print(f"📅 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"📂 根目錄: {BASE_DIR}")
     print("==================================================")
+
     conn = init_db()
     plurk = PlurkAPI(ck, cs)
     plurk.authorize(at, as_)
@@ -258,9 +295,10 @@ def main():
         print(f"🔍 上次備份最後 ID: {last_id}")
         mode_type, criteria = select_backup_mode(last_id)
 
-    # 4. 執行任務
+    # 2. 執行任務
     run_backup_task(plurk, conn, mode_type, criteria)
     conn.close()
+
 
 if __name__ == "__main__":
     main()
