@@ -36,8 +36,13 @@ jobs:
       - name: Set Version
         shell: bash
         run: |
-          # 從 Tag 中提取版本號並存入環境變數
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            # 如果是 Tag 觸發，去除路徑保留版本號 (例如 v1.0.0)
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          else
+            # 如果不是 Tag 觸發 (如 PR 或手動)，給予一個簡單的名稱，避免斜線
+            echo "VERSION=latest" >> $GITHUB_ENV
+          fi
 
       # 在 build.yml 中修改 Windows 打包指令
       - name: 打包 (Windows)
