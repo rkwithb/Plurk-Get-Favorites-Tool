@@ -272,12 +272,16 @@ def setup_env():
     return
 
 def main():
-    # 弱化編碼重導向：僅在必要且安全時執行
-    init_console()
 
+    # 1. 檢查 tool.env 並加載
     env_file = os.path.join(BASE_DIR, "tool.env")
     if not os.path.exists(env_file):
+        init_console() # setup_env 之前初始化
         return setup_env()
+
+    load_dotenv(env_file) # 先加載環境變數
+    # 弱化編碼重導向：僅在必要且安全時執行
+    init_console()        # 加載後「再次」強制設定編碼，確保不被覆蓋
 
     ck, cs, at, as_ = get_keys()
     if not ck or not cs or not at or not as_:
