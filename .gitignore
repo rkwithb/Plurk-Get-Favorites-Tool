@@ -18,3 +18,5 @@ msg.txt
 note/
 *.tmp
 *.db
+*.sh
+*.exe
