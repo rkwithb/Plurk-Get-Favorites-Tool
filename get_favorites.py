@@ -83,7 +83,7 @@ def setup_env():
         f.write("PLURK_ACCESS_TOKEN=\n")
         f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
 
-    print("❌ 找不到 tool.env，已為您建立範本。")
+    print("[!!] 找不到 tool.env，已為您建立範本。")
     print("--------------------------------------------------")
     print("引導流程：")
     print("1. 請至 https://www.plurk.com/PlurkApp/ 申請 App。")
@@ -111,7 +111,7 @@ def get_new_tokens(ck, cs):
 def get_keys():
     env_file = "tool.env"
     if not os.path.exists(env_file):
-        print(f"❌ 找不到 {env_file}")
+        print(f"[!!] 找不到 {env_file}")
         return None, None, None, None
     load_dotenv(env_file)
     return os.getenv("PLURK_CONSUMER_KEY"), os.getenv("PLURK_CONSUMER_SECRET"), \
@@ -123,7 +123,7 @@ def save_keys(ck, cs, at, as_):
         f.write(f"PLURK_CONSUMER_SECRET={cs}\n")
         f.write(f"PLURK_ACCESS_TOKEN={at}\n")
         f.write(f"PLURK_ACCESS_TOKEN_SECRET={as_}\n")
-    print("✅ 已將金鑰與 Access Token 儲存至 tool.env")
+    print("[OK] 已將金鑰與 Access Token 儲存至 tool.env")
 
 def get_last_saved_id(conn):
     cursor = conn.cursor()
@@ -177,10 +177,10 @@ def export_js_files(conn, mode_type):
                 months_to_update = {line.strip() for line in f if line.strip()}
 
     if not months_to_update:
-        print("🙌 無需更新 JS 檔案。")
+        print("[OK] 無需更新 JS 檔案。")
         return
 
-    print(f"💾 正在產出 JS 檔案: {sorted(list(months_to_update))}")
+    print(f"[>>] 正在產出 JS 檔案: {sorted(list(months_to_update))}")
     for ym in months_to_update:
         # 這裡從資料庫篩選該月份資料 (使用 LIKE 比對 posted 內容)
         # 注意：API 的日期格式為 "Fri, 05 Jun 2009..."，需精準轉換或比對
@@ -258,7 +258,7 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
 
     # 執行 JS 產出同步
     export_js_files(conn, mode_type)
-    print(f"\n🎉 任務完成！本次新增/檢查了 {total_new} 則噗文。")
+    print(f"\n[OK] 任務完成！本次新增/檢查了 {total_new} 則噗文。")
 
 
 
@@ -281,8 +281,8 @@ def main():
     print("-----金鑰設定完整-----")
     # (setup_env 檢查後)
     print("==================================================")
-    print("🚀 Plurk Favorites Backup Tool v2.0 (SQLite Edition)")
-    print(f"📅 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("[GO] Plurk Favorites Backup Tool v2.0 (SQLite Edition)")
+    print(f"[time] 執行時間: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("==================================================")
     conn = init_db()
     plurk = PlurkAPI(ck, cs)
@@ -290,11 +290,11 @@ def main():
 
     last_id = get_last_saved_id(conn)
     if last_id == 0:
-        print("💡 偵測到尚未有備份紀錄，將自動執行【模式 3：完整備份】...")
+        print("[**] 偵測到尚未有備份紀錄，將自動執行【模式 3：完整備份】...")
         mode_type, criteria = 'full', 0
     else:
         # 正常選擇模式
-        print(f"🔍 上次備份最後 ID: {last_id}")
+        print(f"[..] 上次備份最後 ID: {last_id}")
         mode_type, criteria = select_backup_mode(last_id)
 
     # 4. 執行任務
