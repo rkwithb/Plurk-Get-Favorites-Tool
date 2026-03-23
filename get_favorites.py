@@ -23,6 +23,11 @@ from plurk_oauth import PlurkAPI
 BACKUP_DIR = "backup_js"
 DB_PATH = os.path.join(BACKUP_DIR, "plurk_favorites.db")
 TRACK_FILE = os.path.join(BACKUP_DIR, "affected_months.txt")
+# 環境設定
+REQUEST_TOKEN_URL = "https://www.plurk.com/OAuth/request_token"
+AUTHORIZE_URL = "https://www.plurk.com/OAuth/authorize"
+ACCESS_TOKEN_URL = "https://www.plurk.com/OAuth/access_token"
+
 
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
@@ -65,8 +70,44 @@ def save_to_db(conn, p):
     conn.commit()
 
 # ==========================================
-# 金鑰與 Token 管理 (略，與原版相同...)
+# 金鑰與 Token 管理
 # ==========================================
+
+
+
+def setup_env():
+    """建立 .env 範本並引導使用者操作"""
+    with open("tool.env", "w", encoding="utf-8") as f:
+        f.write("PLURK_CONSUMER_KEY=\n")
+        f.write("PLURK_CONSUMER_SECRET=\n")
+        f.write("PLURK_ACCESS_TOKEN=\n")
+        f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
+
+    print("❌ 找不到 tool.env，已為您建立範本。")
+    print("--------------------------------------------------")
+    print("引導流程：")
+    print("1. 請至 https://www.plurk.com/PlurkApp/ 申請 App。")
+    print("2. 申請教學請見https://github.com/rkwithb/Plurk-Get-Favorites-Tool/blob/main/Tutorial/plurkappkey.md")
+    print("3. 將四個key填入 tool.env 檔案中並儲存。")
+    print("4. 重新執行此程式。")
+    print("--------------------------------------------------")
+    return # 結束函數
+
+
+def get_new_tokens(ck, cs):
+    oauth = OAuth1(ck, client_secret=cs)
+    r = requests.post(REQUEST_TOKEN_URL, auth=oauth)
+    creds = parse_qs(r.text)
+    req_token = creds.get('oauth_token')[0]
+    req_secret = creds.get('oauth_token_secret')[0]
+    print(f"\n請開啟網頁進行授權：\n{AUTHORIZE_URL}?oauth_token={req_token}")
+    verifier = safe_input("\n請輸入驗證碼: ").strip()
+    oauth = OAuth1(ck, client_secret=cs, resource_owner_key=req_token,
+                   resource_owner_secret=req_secret, verifier=verifier)
+    r = requests.post(ACCESS_TOKEN_URL, auth=oauth)
+    final_creds = parse_qs(r.text)
+    return final_creds.get('oauth_token')[0], final_creds.get('oauth_token_secret')[0]
+
 def get_keys():
     env_file = "tool.env"
     if not os.path.exists(env_file):
@@ -75,6 +116,14 @@ def get_keys():
     load_dotenv(env_file)
     return os.getenv("PLURK_CONSUMER_KEY"), os.getenv("PLURK_CONSUMER_SECRET"), \
            os.getenv("PLURK_ACCESS_TOKEN"), os.getenv("PLURK_ACCESS_TOKEN_SECRET")
+
+def save_keys(ck, cs, at, as_):
+    with open("tool.env", "w", encoding="utf-8") as f:
+        f.write(f"PLURK_CONSUMER_KEY={ck}\n")
+        f.write(f"PLURK_CONSUMER_SECRET={cs}\n")
+        f.write(f"PLURK_ACCESS_TOKEN={at}\n")
+        f.write(f"PLURK_ACCESS_TOKEN_SECRET={as_}\n")
+    print("✅ 已將金鑰與 Access Token 儲存至 tool.env")
 
 def get_last_saved_id(conn):
     cursor = conn.cursor()
@@ -212,34 +261,24 @@ def run_backup_task(plurk, conn, mode_type, criteria_value):
     print(f"\n🎉 任務完成！本次新增/檢查了 {total_new} 則噗文。")
 
 
-def setup_env():
-    """建立 .env 範本並引導使用者操作"""
-    with open("tool.env", "w", encoding="utf-8") as f:
-        f.write("PLURK_CONSUMER_KEY=\n")
-        f.write("PLURK_CONSUMER_SECRET=\n")
-        f.write("PLURK_ACCESS_TOKEN=\n")
-        f.write("PLURK_ACCESS_TOKEN_SECRET=\n")
-
-    print("❌ 找不到 tool.env，已為您建立範本。")
-    print("--------------------------------------------------")
-    print("引導流程：")
-    print("1. 請至 https://www.plurk.com/PlurkApp/ 申請 App。")
-    print("2. 申請教學請見https://github.com/rkwithb/Plurk-Get-Favorites-Tool/blob/main/Tutorial/plurkappkey.md")
-    print("3. 將四個key填入 tool.env 檔案中並儲存。")
-    print("4. 重新執行此程式。")
-    print("--------------------------------------------------")
-    return # 結束函數
 
 def main():
 
     # ---「引導流程」的新位置 ---
     if not os.path.exists("tool.env"):
         return setup_env()  # 執行引導並直接結束 main
-    # --- 之後才是核心邏輯 ---
+    # --- 檢查keys ---
+    print("-----檢查金鑰-----")
     ck, cs, at, as_ = get_keys()
-    if not ck or not cs or not at or not as_: return
+    if not ck or not cs:
+        print("[!!] PLURK_CONSUMER_KEY / PLURK_CONSUMER_SECRET 尚未填寫，請編輯 tool.env。")
+        return
 
+    if not at or not as_:
+        at, as_ = get_new_tokens(ck, cs)
+        save_keys(ck, cs, at, as_)
 
+    print("-----金鑰設定完整-----")
     # (setup_env 檢查後)
     print("==================================================")
     print("🚀 Plurk Favorites Backup Tool v2.0 (SQLite Edition)")
