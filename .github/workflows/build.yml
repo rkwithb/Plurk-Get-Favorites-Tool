@@ -36,15 +36,14 @@ jobs:
       - name: Set Version
         shell: bash
         run: |
-          # 從 Tag 中提取版本號並存入環境變數
+          # Extract version number from Git tag and store in env
           echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
-      # 在 build.yml 中修改 Windows 打包指令
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
-          # 移除 --windowed，保留預設的 console 模式
+          # Keep default console mode (no --windowed flag)
           pyinstaller --onefile --name "Plurk_Archive_Win_${{ env.VERSION }}" get_favorites.py
 
       - name: 打包 (macOS)
@@ -53,13 +52,35 @@ jobs:
         run: |
           pyinstaller --onefile --name "Plurk_Archive_Mac_${{ env.VERSION }}" get_favorites.py
 
+      # --- Zip: binary + index.html + style.css (flat structure) ---
+
+      - name: 封裝 ZIP (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # PowerShell: compress binary and frontend files into a flat zip
+          $zipName = "Plurk_Archive_Win_${{ env.VERSION }}.zip"
+          Compress-Archive -Path `
+            "dist\Plurk_Archive_Win_${{ env.VERSION }}.exe", `
+            "index.html", `
+            "style.css" `
+            -DestinationPath $zipName
+
+      - name: 封裝 ZIP (macOS)
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          # zip: -j strips directory paths so all files land at zip root (flat)
+          zip -j "Plurk_Archive_Mac_${{ env.VERSION }}.zip" \
+            "dist/Plurk_Archive_Mac_${{ env.VERSION }}" \
+            "index.html" \
+            "style.css"
+
       - name: 暫存成品
         uses: actions/upload-artifact@v4
         with:
-          name: executable-${{ matrix.os }}
-          path: |
-            dist/Plurk_Archive_Win_*
-            dist/Plurk_Archive_Mac_*
+          name: zip-${{ matrix.os }}
+          path: Plurk_Archive_*.zip
 
   test:
     name: 測試執行檔 (${{ matrix.os }})
@@ -71,23 +92,29 @@ jobs:
         os: [windows-latest, macos-latest]
 
     steps:
-      - name: 下載該系統的成品
+      - name: 下載該系統的 ZIP 成品
         uses: actions/download-artifact@v4
         with:
-          name: executable-${{ matrix.os }}
+          name: zip-${{ matrix.os }}
 
-      - name: 執行驗證 (Windows)
+      - name: 解壓縮並驗證 (Windows)
         if: matrix.os == 'windows-latest'
-        shell: bash
-        # 使用 bash 處理萬用字元 * 以確保正確找到檔案
-        run: ./Plurk_Archive_Win_*.exe --help || echo "啟動成功（忽略無 GUI 錯誤）"
+        shell: pwsh
+        run: |
+          # Expand the zip, then smoke-test the binary
+          $zip = Get-ChildItem Plurk_Archive_Win_*.zip | Select-Object -First 1
+          Expand-Archive -Path $zip.FullName -DestinationPath ./extracted
+          $exe = Get-ChildItem ./extracted/Plurk_Archive_Win_*.exe | Select-Object -First 1
+          & $exe.FullName --help; if ($LASTEXITCODE -ne 0) { Write-Host "[OK] Launch succeeded (non-zero exit ignored)" }
 
-      - name: 執行驗證 (macOS)
+      - name: 解壓縮並驗證 (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          chmod +x Plurk_Archive_Mac_*
-          ./Plurk_Archive_Mac_* --help || echo "啟動成功（忽略無 GUI 錯誤）"
+          # Expand the zip, then smoke-test the binary
+          unzip Plurk_Archive_Mac_*.zip -d ./extracted
+          chmod +x ./extracted/Plurk_Archive_Mac_*
+          ./extracted/Plurk_Archive_Mac_* --help || echo "[OK] Launch succeeded (non-zero exit ignored)"
 
   release:
     name: 建立發佈版本
@@ -95,16 +122,16 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - name: 下載所有成品
+      - name: 下載所有 ZIP 成品
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
-          pattern: executable-*
+          pattern: zip-*
           merge-multiple: true
 
       - name: 上傳至 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./artifacts/**
+          files: ./artifacts/Plurk_Archive_*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
