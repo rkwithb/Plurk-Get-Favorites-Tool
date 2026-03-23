@@ -14,7 +14,7 @@
 
 1.  **SQLite (plurk_favorites.db)**: 作為「原始資料庫 (Source of Truth)」。所有從 Plurk API 抓取的資料會先完整存入資料庫。即使在 Plurk 上取消了最愛，資料庫內仍會保留備份。
 2.  **JavaScript 檔案**: 僅作為前端顯示使用。程式會根據資料庫內容自動產出 `YYYY_MM.js` 檔案。
-3.  **局部更新 (Performance)**: 
+3.  **局部更新 (Performance)**:
     - 在「增量備份」模式下，程式僅重新產生「受影響月份」的 JS 檔案，大幅減少磁碟 I/O 並加快大型帳號的同步速度。
 
 ### ⚠️ 隱私與備份提醒
@@ -85,6 +85,9 @@ PLURK_ACCESS_TOKEN_SECRET=
 ### 📱 如何在手機上瀏覽備份？
 
 建議將產出的檔案（`index.html`、`backup_js` 資料夾等）上傳至以下免費空間：
+>⚠️隱私安全提醒：
+>上傳前請務必確認你的備份內容是否包含敏感個人資訊，並了解各平台的隱私權設定。
+>若欲維持個人私有瀏覽，請確認 Repository 或 Project 設定為 Private。
 
 * [Vercel](https://vercel.com/) (推薦：直接將資料夾拖放至網頁即可完成)
 * [Cloudflare Pages](https://pages.cloudflare.com/)
