@@ -36,8 +36,12 @@ jobs:
       - name: Set Version
         shell: bash
         run: |
-          # Extract version number from Git tag and store in env
-          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          # Use ref_name for tags; fall back to short SHA for non-tag runs
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+          else
+            echo "VERSION=dev-$(echo $GITHUB_SHA | cut -c1-7)" >> $GITHUB_ENV
+          fi
 
       - name: 打包 (Windows)
         if: matrix.os == 'windows-latest'
