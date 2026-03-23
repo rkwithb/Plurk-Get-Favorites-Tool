@@ -37,8 +37,8 @@
 
 註冊成功後，你會在列表中看到你的應用程式。點擊 **「編輯」** 進入詳細頁面：
 
-* **App Key**：這就是你的 `Consumer Key`。
-* **App Secret**：這就是你的 `Consumer Secret`。
+* **App Key**：這就是你在tool.env的 `Consumer Key`。
+* **App Secret**：這就是你在tool.env的 `Consumer Secret`。
 
 ![圖片敘述](appkey02.JPG)
 
