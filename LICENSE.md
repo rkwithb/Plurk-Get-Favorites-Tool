@@ -1,20 +1,31 @@
-## 授權與免責聲明 / License and Disclaimer
+Apache License
+Version 2.0, January 2004
+http://www.apache.org/licenses/
 
-本專案採用 **CC BY-NC 4.0 (姓名標示-非商業性 4.0 國際)** 授權條款。
+Copyright 2026 rkwithb
 
-This project is licensed under **CC BY-NC 4.0 (Attribution-NonCommercial 4.0 International)**.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 
 ---
 
-### 中文說明 (Chinese)
+非正式翻譯 — 參考用
 
-* **非商用限制**：嚴禁將本程式、原始碼或其編譯後之執行檔 (.exe) 用於任何形式的商業營利行為（包括但不限於付費代抓資料、整合入付費軟體等）。
-* **免責聲明**：本軟體按「現狀」提供，不附帶任何形式的保證。作者（R）對於使用者因執行本程式所導致之任何直接或間接損害（包括但不限於帳號被封鎖、資料遺失或損壞），不負任何法律與補償責任。使用者須自行承擔使用風險。
+版權 2026 rkwithb
 
-### English Version
+本檔案依據 Apache License 第 2.0 版授權（下稱「授權」）；您使用本檔案即表示同意遵守該授權之條款。
+授權原文請見： http://www.apache.org/licenses/LICENSE-2.0
 
-* **Non-Commercial Use Only**: Any commercial use of this software, its source code, or its distributed executables (.exe), is strictly prohibited (including but not limited to paid data extraction services or integration into commercial software).
-* **Disclaimer**: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. IN NO EVENT SHALL THE AUTHOR (R) BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE (INCLUDING BUT NOT LIMITED TO ACCOUNT SUSPENSION OR DATA LOSS). USE AT YOUR OWN RISK.
+除非適用法律另有規定或經書面同意，依該授權散布之軟體均按「現狀」提供，既不附帶任何明示或暗示之保證（包含但不限於對適售性、適合於特定用途之保證）。
+欲瞭解授權所賦予之權利與限制，請以授權英文原文為準。
 
----
-*For more details, please visit [CC BY-NC 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/).*
+注意：此中文譯文為非正式翻譯，僅供參考；法律效力以英文原文（http://www.apache.org/licenses/LICENSE-2.0）為準。
